@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego Isométrico 2D</title>
+    <style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
+        canvas { border: 1px solid black; background-color: white; }
+    </style>
+</head>
+<body>
+    <canvas id="game" width="800" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+
+        const TILE_WIDTH = 64;
+        const TILE_HEIGHT = 32;
+        const MAP_WIDTH = 20;
+        const MAP_HEIGHT = 20;
+
+        // Definir el mapa (0: hierba, 1: agua, 2: árbol, 3: cabaña, 4: puente)
+        let map = Array.from({length: MAP_HEIGHT}, () => Array(MAP_WIDTH).fill(0));
+
+        // Río horizontal en y=10
+        for (let x = 0; x < MAP_WIDTH; x++) {
+            map[10][x] = 1; // agua
+        }
+
+        // Puente en x=10, y=10
+        map[10][10] = 4;
+
+        // Árboles aleatorios
+        for (let i = 0; i < 20; i++) {
+            let x = Math.floor(Math.random() * MAP_WIDTH);
+            let y = Math.floor(Math.random() * MAP_HEIGHT);
+            if (map[y][x] === 0) map[y][x] = 2;
+        }
+
+        // Cabañas
+        map[5][5] = 3;
+        map[15][15] = 3;
+
+        // Posición del jugador
+        let playerX = 0;
+        let playerY = 0;
+        let path = [];
+        let lastMove = 0;
+
+        // Cámara
+        let camX = 0;
+        let camY = 0;
+
+        // Función para dibujar un tile isométrico
+        function drawTile(type, screenX, screenY) {
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY + TILE_HEIGHT / 2);
+            ctx.lineTo(screenX + TILE_WIDTH / 2, screenY);
+            ctx.lineTo(screenX + TILE_WIDTH, screenY + TILE_HEIGHT / 2);
+            ctx.lineTo(screenX + TILE_WIDTH / 2, screenY + TILE_HEIGHT);
+            ctx.closePath();
+
+            let color;
+            switch (type) {
+                case 0: color = 'green'; break; // hierba
+                case 1: color = 'blue'; break; // agua
+                case 2: color = 'darkgreen'; break; // árbol
+                case 3: color = 'brown'; break; // cabaña
+                case 4: color = 'gray'; break; // puente
+            }
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        // Convertir coordenadas isométricas a pantalla
+        function isoToScreen(isoX, isoY) {
+            let screenX = (isoX - isoY) * (TILE_WIDTH / 2);
+            let screenY = (isoX + isoY) * (TILE_HEIGHT / 2);
+            return { x: screenX, y: screenY };
+        }
+
+        // Convertir coordenadas de pantalla a isométricas
+        function screenToIso(screenX, screenY) {
+            let isoX = (screenX / (TILE_WIDTH / 2) + screenY / (TILE_HEIGHT / 2)) / 2;
+            let isoY = (screenY / (TILE_HEIGHT / 2) - (screenX / (TILE_WIDTH / 2))) / 2;
+            return { x: Math.floor(isoX), y: Math.floor(isoY) };
+        }
+
+        // Dibujar el escenario y el jugador
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Centrar la cámara en el jugador
+            let playerScreen = isoToScreen(playerX, playerY);
+            camX = canvas.width / 2 - playerScreen.x - TILE_WIDTH / 2;
+            camY = canvas.height / 2 - playerScreen.y - TILE_HEIGHT / 2;
+
+            // Dibujar el mapa
+            for (let sum = 0; sum < MAP_WIDTH + MAP_HEIGHT - 1; sum++) {
+                for (let x = Math.max(0, sum - MAP_HEIGHT + 1); x <= Math.min(sum, MAP_WIDTH - 1); x++) {
+                    let y = sum - x;
+                    let pos = isoToScreen(x, y);
+                    drawTile(map[y][x], pos.x + camX, pos.y + camY);
+                }
+            }
+
+            // Dibujar el jugador
+            let playerPos = isoToScreen(playerX, playerY);
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(playerPos.x + camX + TILE_WIDTH / 2, playerPos.y + camY + TILE_HEIGHT / 2, 10, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Mover el jugador a lo largo del camino
+        function movePlayer() {
+            if (path.length > 0 && Date.now() - lastMove > 200) {
+                let next = path.shift();
+                playerX = next.x;
+                playerY = next.y;
+                lastMove = Date.now();
+            }
+        }
+
+        // Heurística para A* (Manhattan)
+        function heuristic(x1, y1, x2, y2) {
+            return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+        }
+
+        // Obtener vecinos walkables
+        function getNeighbors(x, y) {
+            let neighbors = [];
+            if (x > 0 && isWalkable(x - 1, y)) neighbors.push({ x: x - 1, y });
+            if (x < MAP_WIDTH - 1 && isWalkable(x + 1, y)) neighbors.push({ x: x + 1, y });
+            if (y > 0 && isWalkable(x, y - 1)) neighbors.push({ x, y: y - 1 });
+            if (y < MAP_HEIGHT - 1 && isWalkable(x, y + 1)) neighbors.push({ x, y: y + 1 });
+            return neighbors;
+        }
+
+        // Verificar si es walkable
+        function isWalkable(x, y) {
+            let type = map[y][x];
+            return type !== 1 && type !== 2 && type !== 3; // no agua, árbol o cabaña
+        }
+
+        // Reconstruir el camino
+        function reconstructPath(cameFrom, current) {
+            let totalPath = [current];
+            while (cameFrom.has(current)) {
+                current = cameFrom.get(current);
+                totalPath.unshift(current);
+            }
+            return totalPath.slice(1).map(pos => {
+                let [px, py] = pos.split(',').map(Number);
+                return { x: px, y: py };
+            });
+        }
+
+        // Algoritmo A* para encontrar el camino
+        function findPath(startX, startY, endX, endY) {
+            let openSet = [];
+            let closedSet = new Set();
+            let cameFrom = new Map();
+            let gScore = new Map();
+            let fScore = new Map();
+
+            let start = `${startX},${startY}`;
+            let end = `${endX},${endY}`;
+
+            gScore.set(start, 0);
+            fScore.set(start, heuristic(startX, startY, endX, endY));
+            openSet.push(start);
+
+            while (openSet.length > 0) {
+                // Ordenar openSet por fScore
+                openSet.sort((a, b) => (fScore.get(a) || Infinity) - (fScore.get(b) || Infinity));
+                let current = openSet.shift();
+
+                if (current === end) {
+                    return reconstructPath(cameFrom, current);
+                }
+
+                closedSet.add(current);
+
+                let [cx, cy] = current.split(',').map(Number);
+                let neighbors = getNeighbors(cx, cy);
+
+                for (let neigh of neighbors) {
+                    let npos = `${neigh.x},${neigh.y}`;
+                    if (closedSet.has(npos)) continue;
+
+                    let tentativeG = gScore.get(current) + 1;
+
+                    if (!gScore.has(npos) || tentativeG < gScore.get(npos)) {
+                        cameFrom.set(npos, current);
+                        gScore.set(npos, tentativeG);
+                        fScore.set(npos, tentativeG + heuristic(neigh.x, neigh.y, endX, endY));
+                        if (!openSet.includes(npos)) {
+                            openSet.push(npos);
+                        }
+                    }
+                }
+            }
+            return []; // No hay camino
+        }
+
+        // Evento de clic/toque
+        canvas.addEventListener('click', (e) => {
+            let rect = canvas.getBoundingClientRect();
+            let mx = e.clientX - rect.left;
+            let my = e.clientY - rect.top;
+
+            // Ajustar por cámara
+            let iso = screenToIso(mx - camX, my - camY);
+
+            if (iso.x >= 0 && iso.x < MAP_WIDTH && iso.y >= 0 && iso.y < MAP_HEIGHT && isWalkable(iso.x, iso.y)) {
+                path = findPath(playerX, playerY, iso.x, iso.y);
+            }
+        });
+
+        // Soporte para toques (touch)
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            let touch = e.touches[0];
+            let rect = canvas.getBoundingClientRect();
+            let mx = touch.clientX - rect.left;
+            let my = touch.clientY - rect.top;
+
+            let iso = screenToIso(mx - camX, my - camY);
+
+            if (iso.x >= 0 && iso.x < MAP_WIDTH && iso.y >= 0 && iso.y < MAP_HEIGHT && isWalkable(iso.x, iso.y)) {
+                path = findPath(playerX, playerY, iso.x, iso.y);
+            }
+        });
+
+        // Bucle de animación
+        function loop() {
+            movePlayer();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>

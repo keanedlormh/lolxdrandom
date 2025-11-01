@@ -288,6 +288,281 @@ class ServerZombie {
 }
 
 
+// ... (código anterior) ...
+
+// --- MAPA ---
+
+// ... (código anterior de ServerMapGenerator constructor, generate, createRoom, createCorridor, isWall, getRandomOpenSpot) ...
+
+    // --- Lógica de Pathfinding A* (Necesaria para la IA del zombie) ---
+
+    // Heurística de Manhattan (para movimiento sin diagonales, o con costo de diagonal 1)
+    heuristic(node, targetGridX, targetGridY) {
+        // La distancia es en coordenadas de cuadrícula (grid)
+        return Math.abs(node.x - targetGridX) + Math.abs(node.y - targetGridY);
+    }
+
+    /**
+     * Devuelve los vecinos de una celda de cuadrícula.
+     * Se permite movimiento diagonal con un costo ligeramente mayor (1.414).
+     */
+    getNeighbors(node) {
+        const neighbors = [];
+        const x = node.x;
+        const y = node.y;
+        
+        // Movimientos (dx, dy, cost)
+        const moves = [
+            // Cardinales (costo 1)
+            [0, 1, 1], [0, -1, 1], [1, 0, 1], [-1, 0, 1],
+            // Diagonales (costo raíz de 2 ≈ 1.414)
+            [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]
+        ];
+
+        for (const [dx, dy, cost] of moves) {
+            const nx = x + dx;
+            const ny = y + dy;
+
+            // Comprobar límites y si es un muro
+            if (nx >= 0 && nx < this.size && ny >= 0 && ny < this.size && this.map[ny][nx] === 0) {
+                neighbors.push({ x: nx, y: ny, cost: cost });
+            }
+        }
+        return neighbors;
+    }
+
+    /**
+     * Implementación del algoritmo A* para encontrar la ruta más corta.
+     * Devuelve un array de objetos {x: mundo, y: mundo} a seguir.
+     */
+    findPathAStar(targetWorldX, targetWorldY, startWorldX, startWorldY) {
+        // Convertir coordenadas del mundo a coordenadas de cuadrícula (grid)
+        const startX = Math.floor(startWorldX / this.cellSize);
+        const startY = Math.floor(startWorldY / this.cellSize);
+        const targetX = Math.floor(targetWorldX / this.cellSize);
+        const targetY = Math.floor(targetWorldY / this.cellSize);
+
+        // Comprobar si los puntos de inicio/fin son válidos (no están en muros)
+        if (this.isWall(startWorldX, startWorldY) || this.isWall(targetWorldX, targetWorldY)) {
+             return []; 
+        }
+
+        const startNode = new Node(startX, startY);
+        const openList = [startNode];
+        const closedList = new Set();
+        // Usar un mapa para almacenar el mejor camino a cada nodo
+        const allNodes = new Map();
+        allNodes.set(`${startX},${startY}`, startNode);
+
+        let path = [];
+
+        while (openList.length > 0) {
+            // Encontrar el nodo con la F más baja
+            openList.sort((a, b) => a.f - b.f);
+            let currentNode = openList.shift();
+
+            if (currentNode.x === targetX && currentNode.y === targetY) {
+                // Ruta encontrada, reconstruir el camino
+                let temp = currentNode;
+                while (temp) {
+                    // Convertir de coordenadas de cuadrícula a coordenadas del mundo (centro de la celda)
+                    path.unshift({ 
+                        x: temp.x * this.cellSize + this.cellSize / 2, 
+                        y: temp.y * this.cellSize + this.cellSize / 2 
+                    });
+                    temp = temp.parent;
+                }
+                // El primer elemento es el punto de partida, lo omitimos para que el zombi
+                // solo se mueva hacia el siguiente paso.
+                path.shift(); 
+                return path;
+            }
+
+            closedList.add(`${currentNode.x},${currentNode.y}`);
+
+            for (const neighbor of this.getNeighbors(currentNode)) {
+                const nKey = `${neighbor.x},${neighbor.y}`;
+                if (closedList.has(nKey)) continue;
+
+                const gScore = currentNode.g + neighbor.cost;
+
+                let neighborNode = allNodes.get(nKey);
+
+                if (!neighborNode) {
+                    neighborNode = new Node(neighbor.x, neighbor.y);
+                    allNodes.set(nKey, neighborNode);
+                    openList.push(neighborNode);
+                } else if (gScore >= neighborNode.g) {
+                    continue; // No es un mejor camino
+                }
+
+                // Este es el mejor camino hasta ahora
+                neighborNode.parent = currentNode;
+                neighborNode.g = gScore;
+                neighborNode.h = this.heuristic(neighborNode, targetX, targetY);
+                neighborNode.f = neighborNode.g + neighborNode.h;
+
+                if (!openList.includes(neighborNode)) {
+                    openList.push(neighborNode);
+                }
+            }
+        }
+
+        return []; // No se encontró camino
+    }
+}
+
+// ... (código de ServerPlayer) ...
+
+### 2. Implementación de IA del Zombi con A\* en `ServerZombie`
+
+Modifico `ServerZombie.update` para usar la ruta A\* y realizar el movimiento hacia el siguiente punto de la ruta en lugar de directamente hacia el jugador.
+
+```javascript
+// ... (código anterior de ServerPlayer) ...
+
+/**
+ * Clase Zombie del Servidor.
+ * Gestiona el movimiento (IA) y la lógica de ataque.
+ */
+class ServerZombie {
+    constructor(id, x, y, speed = 1.5) {
+        this.id = id; // ID único del zombie (UUID)
+        this.x = x; this.y = y;
+        this.radius = 14;
+        this.speed = speed;
+        this.health = 50;
+        this.damage = 5; // Daño por ataque
+        this.lastAttack = 0;
+        this.attackRate = 1000; // 1 ataque por segundo
+        this.targetId = null; // El ID del jugador objetivo
+        this.path = []; // Ruta calculada por A*
+        this.repathTimer = 0; // Temporizador para recalcular la ruta
+        this.REPATH_INTERVAL = 30; // Recalcular ruta cada 30 ticks (1 segundo a 30 FPS)
+        this.PATH_REACH_DIST_SQ = 5 * 5; // Distancia cuadrada para considerar alcanzado un punto de la ruta (5px)
+    }
+
+
+    /**
+     * Actualiza el estado del zombie (IA, movimiento, ataque)
+     * @param {ServerMapGenerator} map
+     * @param {Array<ServerPlayer>} players - Array de jugadores para buscar objetivos
+     */
+    update(map, players) {
+        // --- 1. SELECCIÓN DE OBJETIVO (IA) ---
+        let closestPlayer = null;
+        let minDistSq = Infinity;
+
+
+        players.forEach(p => {
+            const distSq = (this.x - p.x)**2 + (this.y - p.y)**2;
+            if (distSq < minDistSq) {
+                minDistSq = distSq;
+                closestPlayer = p;
+            }
+        });
+
+
+        if (!closestPlayer) return; // No hay jugadores activos
+        this.targetId = closestPlayer.id;
+
+        const targetX = closestPlayer.x;
+        const targetY = closestPlayer.y;
+        
+        let dx = targetX - this.x;
+        let dy = targetY - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+
+        // --- 2. MOVER HACIA EL OBJETIVO (A*) ---
+
+        // Recalcular el pathfinding periódicamente o si el camino actual se agotó
+        this.repathTimer++;
+        if (this.repathTimer >= this.REPATH_INTERVAL || this.path.length === 0) {
+            this.path = map.findPathAStar(targetX, targetY, this.x, this.y);
+            this.repathTimer = 0;
+        }
+
+        let nextWaypoint = null;
+        if (this.path.length > 0) {
+            nextWaypoint = this.path[0];
+        }
+
+        if (distance > this.radius + closestPlayer.radius) {
+            let moveTargetX, moveTargetY;
+
+            if (nextWaypoint) {
+                 // Moverse hacia el siguiente waypoint
+                moveTargetX = nextWaypoint.x;
+                moveTargetY = nextWaypoint.y;
+
+                const distToWaypointSq = (moveTargetX - this.x)**2 + (moveTargetY - this.y)**2;
+                
+                // Si el waypoint está cerca, lo removemos de la ruta y apuntamos al siguiente
+                if (distToWaypointSq < this.PATH_REACH_DIST_SQ) {
+                    this.path.shift();
+                    if (this.path.length > 0) {
+                         nextWaypoint = this.path[0];
+                         moveTargetX = nextWaypoint.x;
+                         moveTargetY = nextWaypoint.y;
+                    } else {
+                        // Si ya está en el último waypoint, el objetivo es el jugador
+                        moveTargetX = targetX;
+                        moveTargetY = targetY;
+                    }
+                }
+
+            } else {
+                // Si no hay ruta A* (probablemente cerca del jugador o sin camino), ir directo
+                moveTargetX = targetX;
+                moveTargetY = targetY;
+            }
+
+            // Calcular el movimiento hacia el punto objetivo (waypoint o jugador)
+            dx = moveTargetX - this.x;
+            dy = moveTargetY - this.y;
+            const moveDistance = Math.sqrt(dx * dx + dy * dy);
+
+
+            if (moveDistance > 0) {
+                const normalizedX = dx / moveDistance;
+                const normalizedY = dy / moveDistance;
+
+                const newX = this.x + normalizedX * this.speed;
+                const newY = this.y + normalizedY * this.speed;
+
+                // Colisión con Paredes (Comprobación simple)
+                // Se mueve solo en las coordenadas que no tienen colisión.
+                if (!map.isWall(newX, this.y)) {
+                    this.x = newX;
+                }
+                if (!map.isWall(this.x, newY)) {
+                    this.y = newY;
+                }
+            }
+        }
+
+
+        // --- 3. ATAQUE ---
+        if (distance <= this.radius + closestPlayer.radius + 5) { // Pequeño margen para el ataque
+            const now = Date.now();
+            if (now - this.lastAttack >= this.attackRate) {
+                closestPlayer.takeDamage(this.damage);
+                this.lastAttack = now;
+            }
+        }
+    }
+
+
+    takeDamage(damage) {
+        this.health -= damage;
+        return this.health <= 0; // Devuelve true si el zombie ha muerto
+    }
+}
+
+// ... (código de ServerBullet y module.exports) ...
+
+
 /**
  * Clase Bullet del Servidor.
  * Gestiona el movimiento y la lógica de colisión (solo con paredes).

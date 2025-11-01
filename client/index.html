@@ -24,75 +24,46 @@
             v1.0 - Servidor Autoritativo
         </div>
     </div>
-
-    <div class="menu hidden" id="settingsMenu">
-        <h1>⚙️ CONFIGURACIÓN</h1>
-
-        <label>Dificultad: <span class="value-display" id="difficultyValue">Normal</span></label>
-        <input type="range" id="difficulty" min="1" max="3" value="2" oninput="updateSettings()"> 
-
-        <label>Tamaño Mapa: <span class="value-display" id="mapSizeValue">Mediano</span></label>
-        <input type="range" id="mapSize" min="30" max="70" value="50" step="10" oninput="updateSettings()">
-
-        <label>Velocidad Jugador: <span class="value-display" id="playerSpeedValue">3</span></label>
-        <input type="range" id="playerSpeed" min="2" max="5" value="3" step="0.5" oninput="updateSettings()">
-
-        <label>Cadencia Disparo: <span class="value-display" id="fireRateValue">Normal</span></label>
-        <input type="range" id="fireRate" min="5" max="20" value="10" oninput="updateSettings()">
-
-        <button id="btnHideSettings">VOLVER</button>
-    </div>
-
-    <div class="menu hidden game-over" id="gameOverMenu">
-        <h2>💀 GAME OVER</h2>
-        <div class="final-score">
-            Puntuación Final: <span id="finalScore">0</span>
-        </div>
-        <div>Oleada Alcanzada: <span id="finalWave">0</span></div>
-        <div>Zombies Eliminados: <span id="finalKills">0</span></div>
-        <button id="btnRestartGame">REINTENTAR</button>
-        <button id="btnBackToMenu">MENÚ PRINCIPAL</button>
-    </div>
-
-
-    <div class="menu hidden" id="multiplayerMenu">
-        <h1>⚔️ MULTIJUGADOR</h1>
-
-        <label>Nombre de Jugador:</label>
-        <input type="text" id="playerNameInput" placeholder="Tu Nombre">
-
-        <button id="btnCreateLobby">CREAR PARTIDA</button>
-        <button id="btnFindLobby">BUSCAR PARTIDA</button>
-        <button id="btnShowMainMenu">VOLVER</button>
-    </div>
-
-    <div class="menu hidden" id="lobbiesListMenu">
-        <h1>🔍 SALAS DISPONIBLES</h1>
-
-        <div id="lobbiesContainer">
-            <p>Cargando salas...</p>
-        </div>
-
-        <button id="btnShowMultiplayerFromLobbies">VOLVER</button>
-    </div>
-
     <div class="menu hidden" id="lobbyWaitMenu">
         <h1>🚪 SALA DE ESPERA</h1>
-
         <p>ID de Partida: <strong id="lobbyIdDisplay" style="color: #00ff00; font-size: 20px;">...</strong></p>
-
         <h3 style="margin-top: 15px;">Jugadores:</h3>
-
         <ul id="lobbyPlayersList"></ul>
-
         <button id="startMultiplayerButton" class="hidden">INICIAR PARTIDA</button>
-
         <button id="btnExitLobby">SALIR DEL LOBBY</button>
     </div>
 
+    <div class="hud hidden">
+        <div class="score-info">
+            <div>SCORE: <span id="score">0</span></div>
+            <div>KILLS: <span id="kills">0</span></div>
+        </div>
 
+        <div class="wave-info hidden">
+            WAVE: <span id="wave">1</span>
+        </div>
+
+        <div class="health-bar hidden">
+            <div class="health-label">HEALTH</div>
+            <div class="health-meter">
+                <div id="healthFill" style="width: 100%;"></div>
+            </div>
+            <div id="healthText">100 / 100</div>
+        </div>
+
+        <canvas id="minimap" width="150" height="150"></canvas>
+
+        <div class="joystick-container">
+            <div class="joystick-base" id="moveJoystick">
+                <div class="joystick-knob" id="moveKnob"></div>
+            </div>
+            
+            <div class="joystick-base" id="shootJoystick">
+                <div class="joystick-knob" id="shootKnob"></div>
+            </div>
+        </div>
+    </div>
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
-
     <script type="module" src="js/utils.js"></script>
     <script type="module" src="js/entities.js"></script>
     <script type="module" src="js/game.js"></script>

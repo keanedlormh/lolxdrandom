@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Zombie Defense</title>
+    <title>Zombie Defense - Multijugador</title>
     
     <style>
         /* CSS General y de Reset */
@@ -11,7 +11,6 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            /* Desactiva la selección de texto en móviles */
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
@@ -21,7 +20,6 @@
             background: #000;
             overflow: hidden;
             font-family: 'Arial', sans-serif;
-            /* Evita el rebote de scroll y acciones táctiles por defecto */
             touch-action: none;
         }
         
@@ -32,6 +30,7 @@
             touch-action: none;
         }
         
+        /* Estilo base para el joystick (controlado por VirtualJoystick en utils.js) */
         .joystick {
             position: absolute;
             width: 120px;
@@ -54,15 +53,8 @@
             transition: all 0.1s;
         }
         
-        #moveJoystick {
-            bottom: 20px;
-            left: 20px;
-        }
-        
-        #shootJoystick {
-            bottom: 20px;
-            right: 20px;
-        }
+        #moveJoystick { bottom: 20px; left: 20px; }
+        #shootJoystick { bottom: 20px; right: 20px; }
         
         /* HUD (Puntuación, Oleada, Salud) */
         .hud {
@@ -81,7 +73,7 @@
         .wave-info {
             position: absolute;
             top: 10px;
-            right: 180px; /* Espacio para el minimapa */
+            right: 180px; 
             color: #ff3333;
             font-size: 20px;
             font-weight: bold;
@@ -130,7 +122,7 @@
             text-shadow: 1px 1px 2px #000;
         }
 
-        /* Estructura de Menús */
+        /* Estructura y estilos de Menús */
         .menu {
             position: absolute;
             top: 50%;
@@ -166,14 +158,8 @@
             font-weight: bold;
         }
         
-        .menu button:hover {
-            background: #cc0000;
-        }
-        
-        .menu button:disabled {
-            background: #555;
-            cursor: not-allowed;
-        }
+        .menu button:hover { background: #cc0000; }
+        .menu button:disabled { background: #555; cursor: not-allowed; }
 
         .menu label {
             display: block;
@@ -188,36 +174,23 @@
             box-sizing: border-box;
         }
         
-        .menu .value-display {
-            display: inline-block;
-            float: right;
-            color: #ff3333;
-        }
+        .menu .value-display { display: inline-block; float: right; color: #ff3333; }
         
-        /* Estilos específicos de menús */
-        .game-over {
-            text-align: center;
-        }
-        
-        .game-over h2 {
-            color: #ff3333;
-            font-size: 48px;
-            margin-bottom: 20px;
-        }
-        
-        .game-over .final-score {
-            font-size: 24px;
-            margin: 20px 0;
-        }
-        
+        /* Estilos de Lobby */
         #lobbiesContainer {
             max-height: 200px;
             overflow-y: auto;
             margin-bottom: 15px;
             background: rgba(255,255,255,0.05);
             padding: 5px;
+            text-align: center;
         }
         
+        #lobbiesContainer button {
+            background: #555;
+            margin: 5px 0;
+        }
+
         #lobbyPlayersList {
             list-style-type: none;
             padding: 0;
@@ -227,6 +200,7 @@
         #lobbyPlayersList li {
             padding: 5px;
             border-bottom: 1px solid #444;
+            text-align: left;
         }
 
         /* Clase de control: oculta el elemento */
@@ -246,7 +220,6 @@
     
     <div class="wave-info">
         <div>Oleada: <span id="wave">1</span></div>
-        <div>Zombies: <span id="zombiesLeft">0</span></div>
     </div>
     
     <div class="health-bar">
@@ -256,11 +229,11 @@
     
     <canvas class="minimap" id="minimap" width="150" height="150"></canvas>
     
-    <div class="joystick" id="moveJoystick">
+    <div class="joystick hidden" id="moveJoystick">
         <div class="joystick-knob" id="moveKnob"></div>
     </div>
     
-    <div class="joystick" id="shootJoystick">
+    <div class="joystick hidden" id="shootJoystick">
         <div class="joystick-knob" id="shootKnob"></div>
     </div>
     
@@ -275,7 +248,7 @@
         <button onclick="showSettings()">CONFIGURACIÓN</button>
         
         <div style="margin-top: 20px; font-size: 12px; text-align: center; color: #888;">
-            Defiende tu posición de las oleadas de zombies
+            v1.0 - Servidor Autoritativo
         </div>
     </div>
     
@@ -308,6 +281,7 @@
         <button onclick="backToMenu()">MENÚ PRINCIPAL</button>
     </div>
 
+    
     <div class="menu hidden" id="multiplayerMenu">
         <h1>⚔️ MULTIJUGADOR</h1>
         
@@ -325,7 +299,8 @@
         <h1>🔍 SALAS DISPONIBLES</h1>
         
         <div id="lobbiesContainer">
-            </div>
+            <p>Cargando salas...</p>
+        </div>
         
         <button onclick="showMultiplayerMenu()">VOLVER</button>
     </div>
@@ -337,10 +312,9 @@
         
         <h3 style="margin-top: 15px;">Jugadores:</h3>
         
-        <ul id="lobbyPlayersList">
-            </ul>
+        <ul id="lobbyPlayersList"></ul>
         
-        <button id="startMultiplayerButton" class="hidden" onclick="requestStartGame()">INICIAR PARTIDA</Vbutton>
+        <button id="startMultiplayerButton" class="hidden" onclick="requestStartGame()">INICIAR PARTIDA</button>
         
         <button onclick="showMultiplayerMenu()">SALIR DEL LOBBY</button>
     </div>
@@ -348,6 +322,8 @@
 
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
 
+    <script type="module" src="js/utils.js"></script>
+    <script type="module" src="js/entities.js"></script>
     <script type="module" src="js/game.js"></script>
     
 </body>

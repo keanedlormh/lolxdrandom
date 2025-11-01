@@ -6,7 +6,9 @@
  * NOTA: Usa 'module.exports' para Node.js en lugar de 'export default/const'.
  */
 
+
 // --- UTILITIES: CLASES BÁSICAS ---
+
 
 /**
  * Clase Node para el algoritmo de Pathfinding A*.
@@ -14,12 +16,18 @@
  */
 class Node {
     constructor(x, y, g = 0, h = 0, parent = null) {
-        this.x = x; this.y = y; this.g = g; this.h = h;
-        this.f = g + h; this.parent = parent;
+        this.x = x; // Coordenada X (cuadrícula)
+        this.y = y; // Coordenada Y (cuadrícula)
+        this.g = g; // Costo desde el inicio
+        this.h = h; // Heurística hasta el objetivo
+        this.f = g + h; // Costo total (f = g + h)
+        this.parent = parent; // Nodo padre
     }
 }
 
+
 // --- MAPA ---
+
 
 /**
  * MapGenerator del Servidor.
@@ -33,11 +41,13 @@ class ServerMapGenerator {
         this.map = [];
         this.rooms = [];
         this.generate();
-        
+
+
         // Simulación de los límites del mapa para colisiones
         this.mapWorldSize = size * this.cellSize;
     }
-    
+
+
     generate() {
         // Lógica de generación del laberinto (misma que en el cliente)
         for (let y = 0; y < this.size; y++) {
@@ -46,7 +56,8 @@ class ServerMapGenerator {
                 this.map[y][x] = 1; 
             }
         }
-        
+
+
         const numRooms = Math.floor(this.size / 5);
         for (let i = 0; i < numRooms; i++) {
             const w = 4 + Math.floor(Math.random() * 6);
@@ -56,17 +67,20 @@ class ServerMapGenerator {
             this.createRoom(x, y, w, h);
             this.rooms.push({x, y, w, h, cx: x + Math.floor(w/2), cy: y + Math.floor(h/2)});
         }
-        
+
+
         for (let i = 0; i < this.rooms.length - 1; i++) {
             this.createCorridor(this.rooms[i].cx, this.rooms[i].cy, this.rooms[i + 1].cx, this.rooms[i + 1].cy);
         }
-        
+
+
         const center = Math.floor(this.size / 2);
         this.createRoom(center - 3, center - 3, 7, 7);
         // Punto de spawn inicial para los jugadores
         this.spawnPoint = {x: center * this.cellSize + this.cellSize/2, y: center * this.cellSize + this.cellSize/2};
     }
-    
+
+
     createRoom(x, y, w, h) {
         for (let j = y; j < y + h && j < this.size; j++) {
             for (let i = x; i < x + w && i < this.size; i++) {
@@ -74,7 +88,8 @@ class ServerMapGenerator {
             }
         }
     }
-    
+
+
     createCorridor(x1, y1, x2, y2) {
         let x = x1, y = y1;
         while (x !== x2) {
@@ -86,22 +101,27 @@ class ServerMapGenerator {
             y += y < y2 ? 1 : -1;
         }
     }
-    
+
+
     /**
      * Comprueba si una posición (coordenadas del mundo) está dentro de un muro.
      */
     isWall(x, y) {
         // Comprobar límites del mapa
         if (x < 0 || x > this.mapWorldSize || y < 0 || y > this.mapWorldSize) return true;
-        
+
+
         const gx = Math.floor(x / this.cellSize);
         const gy = Math.floor(y / this.cellSize);
-        
+
+
         // Evitar acceso a índices fuera del array (aunque ya comprobamos límites)
         if (gx < 0 || gx >= this.size || gy < 0 || gy >= this.size) return true;
-        
+
+
         return this.map[gy][gx] === 1; // 1 = Muro
     }
+
 
     getRandomOpenSpot() {
         let x, y, gx, gy;
@@ -109,198 +129,23 @@ class ServerMapGenerator {
             gx = Math.floor(Math.random() * this.size);
             gy = Math.floor(Math.random() * this.size);
         } while (this.map[gy][gx] === 1);
-        
+
+
         x = gx * this.cellSize + this.cellSize / 2;
         y = gy * this.cellSize + this.cellSize / 2;
         return {x, y};
     }
-    
-    // --- Lógica de Pathfinding A* (Necesaria para la IA del zombie) ---
-    heuristic(node, target) {
-        return Math.abs(node.x - target.x) + Math.abs(node.y - target.y);
-    }
-    
-    // NOTA: Los métodos 'getNeighbors' y 'findPathAStar' se copian del cliente
-    // asegurando que solo usen 'Node' y 'this.map'.
-    // ... (Se asume que el código completo de A* va aquí) ...
-}
 
-// --- ENTIDADES ---
-
-/**
- * Clase Player del Servidor.
- * Gestiona el estado, movimiento, y disparo basándose en la entrada del cliente.
- */
-class ServerPlayer {
-    constructor(id, x, y, speed = 3) {
-        this.id = id; // Socket ID del jugador
-        this.x = x; this.y = y;
-        this.radius = 15;
-        this.speed = speed;
-        this.health = 100;
-        this.maxHealth = 100;
-        this.kills = 0;
-        this.lastShot = Date.now();
-        this.fireRate = 200; // Milisegundos entre disparos (5 disparos/seg)
-        
-        // Almacena la última entrada recibida del cliente
-        this.input = { moveX: 0, moveY: 0, shootX: 0, shootY: 0 }; 
-    }
-    
-    /**
-     * Actualiza el estado del jugador (movimiento y disparo)
-     * @param {ServerMapGenerator} map
-     * @param {Array<ServerBullet>} bulletsArray - Array mutable para añadir balas
-     */
-    update(map, bulletsArray) {
-        // --- 1. MOVIMIENTO ---
-        const dx = this.input.moveX;
-        const dy = this.input.moveY;
-        const length = Math.sqrt(dx * dx + dy * dy);
-        
-        if (length > 0) {
-            const normalizedX = dx / length;
-            const normalizedY = dy / length;
-            
-            const newX = this.x + normalizedX * this.speed;
-            const newY = this.y + normalizedY * this.speed;
-            
-            // Colisión con Paredes (Comprobación simple)
-            if (!map.isWall(newX, this.y)) {
-                this.x = newX;
-            }
-            if (!map.isWall(this.x, newY)) {
-                this.y = newY;
-            }
-        }
-        
-        // --- 2. DISPARO ---
-        if (this.input.shootX !== 0 || this.input.shootY !== 0) {
-            const now = Date.now();
-            if (now - this.lastShot >= this.fireRate) {
-                // Calcular ángulo/dirección del disparo
-                const sx = this.input.shootX;
-                const sy = this.input.shootY;
-                const slength = Math.sqrt(sx * sx + sy * sy);
-                
-                if (slength > 0) {
-                    const dirX = sx / slength;
-                    const dirY = sy / slength;
-                    
-                    // Crear la bala y añadirla al array global de balas
-                    const bullet = new ServerBullet(
-                        this.x + dirX * this.radius, // Spawn ligeramente delante
-                        this.y + dirY * this.radius,
-                        dirX, dirY,
-                        this.id // ID del jugador que disparó
-                    );
-                    bulletsArray.push(bullet);
-                    this.lastShot = now;
-                }
-            }
-        }
-    }
-    
-    takeDamage(damage) {
-        this.health -= damage;
-        if (this.health < 0) this.health = 0;
-        return this.health === 0; // Devuelve true si el jugador ha muerto
-    }
-}
-
-/**
- * Clase Zombie del Servidor.
- * Gestiona el movimiento (IA) y la lógica de ataque.
- */
-class ServerZombie {
-    constructor(id, x, y, speed = 1.5) {
-        this.id = id; // ID único del zombie (UUID)
-        this.x = x; this.y = y;
-        this.radius = 14;
-        this.speed = speed;
-        this.health = 50;
-        this.damage = 5; // Daño por ataque
-        this.lastAttack = 0;
-        this.attackRate = 1000; // 1 ataque por segundo
-        this.targetId = null; // El ID del jugador objetivo
-        this.path = []; // Ruta calculada por A*
-    }
-    
-    /**
-     * Actualiza el estado del zombie (IA, movimiento, ataque)
-     * @param {ServerMapGenerator} map
-     * @param {Array<ServerPlayer>} players - Array de jugadores para buscar objetivos
-     */
-    update(map, players) {
-        // --- 1. SELECCIÓN DE OBJETIVO (IA) ---
-        // En multijugador, el zombie persigue al jugador más cercano.
-        let closestPlayer = null;
-        let minDistSq = Infinity;
-        
-        players.forEach(p => {
-            const distSq = (this.x - p.x)**2 + (this.y - p.y)**2;
-            if (distSq < minDistSq) {
-                minDistSq = distSq;
-                closestPlayer = p;
-            }
-        });
-        
-        if (!closestPlayer) return; // No hay jugadores activos
-        this.targetId = closestPlayer.id;
-
-        // --- 2. MOVER HACIA EL OBJETIVO (A*) ---
-        
-        // Simplemente mover hacia el objetivo para esta versión inicial.
-        // Implementar Pathfinding (A*) aquí es crucial para evitar que los zombies
-        // atraviesen paredes en el servidor. 
-        
-        const targetX = closestPlayer.x;
-        const targetY = closestPlayer.y;
-        
-        let dx = targetX - this.x;
-        let dy = targetY - this.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance > this.radius) { // Moverse si no está lo suficientemente cerca para atacar
-            const normalizedX = dx / distance;
-            const normalizedY = dy / distance;
-            
-            this.x += normalizedX * this.speed;
-            this.y += normalizedY * this.speed;
-            
-            // NOTA: Se necesita implementar la colisión con paredes aquí
-        }
-
-        // --- 3. ATAQUE ---
-        if (distance <= this.radius + closestPlayer.radius) {
-            const now = Date.now();
-            if (now - this.lastAttack >= this.attackRate) {
-                closestPlayer.takeDamage(this.damage);
-                this.lastAttack = now;
-            }
-        }
-    }
-    
-    takeDamage(damage) {
-        this.health -= damage;
-        return this.health <= 0; // Devuelve true si el zombie ha muerto
-    }
-}
-
-
-// ... (código anterior) ...
-
-// --- MAPA ---
-
-// ... (código anterior de ServerMapGenerator constructor, generate, createRoom, createCorridor, isWall, getRandomOpenSpot) ...
 
     // --- Lógica de Pathfinding A* (Necesaria para la IA del zombie) ---
+
 
     // Heurística de Manhattan (para movimiento sin diagonales, o con costo de diagonal 1)
     heuristic(node, targetGridX, targetGridY) {
         // La distancia es en coordenadas de cuadrícula (grid)
         return Math.abs(node.x - targetGridX) + Math.abs(node.y - targetGridY);
     }
+
 
     /**
      * Devuelve los vecinos de una celda de cuadrícula.
@@ -319,9 +164,11 @@ class ServerZombie {
             [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]
         ];
 
+
         for (const [dx, dy, cost] of moves) {
             const nx = x + dx;
             const ny = y + dy;
+
 
             // Comprobar límites y si es un muro
             if (nx >= 0 && nx < this.size && ny >= 0 && ny < this.size && this.map[ny][nx] === 0) {
@@ -330,6 +177,7 @@ class ServerZombie {
         }
         return neighbors;
     }
+
 
     /**
      * Implementación del algoritmo A* para encontrar la ruta más corta.
@@ -342,10 +190,17 @@ class ServerZombie {
         const targetX = Math.floor(targetWorldX / this.cellSize);
         const targetY = Math.floor(targetWorldY / this.cellSize);
 
+
         // Comprobar si los puntos de inicio/fin son válidos (no están en muros)
         if (this.isWall(startWorldX, startWorldY) || this.isWall(targetWorldX, targetWorldY)) {
              return []; 
         }
+        
+        // Evitar pathfinding si el inicio y el fin son la misma celda
+        if (startX === targetX && startY === targetY) {
+            return [];
+        }
+
 
         const startNode = new Node(startX, startY);
         const openList = [startNode];
@@ -354,12 +209,15 @@ class ServerZombie {
         const allNodes = new Map();
         allNodes.set(`${startX},${startY}`, startNode);
 
+
         let path = [];
+
 
         while (openList.length > 0) {
             // Encontrar el nodo con la F más baja
             openList.sort((a, b) => a.f - b.f);
             let currentNode = openList.shift();
+
 
             if (currentNode.x === targetX && currentNode.y === targetY) {
                 // Ruta encontrada, reconstruir el camino
@@ -378,23 +236,28 @@ class ServerZombie {
                 return path;
             }
 
+
             closedList.add(`${currentNode.x},${currentNode.y}`);
+
 
             for (const neighbor of this.getNeighbors(currentNode)) {
                 const nKey = `${neighbor.x},${neighbor.y}`;
                 if (closedList.has(nKey)) continue;
 
+
                 const gScore = currentNode.g + neighbor.cost;
 
+
                 let neighborNode = allNodes.get(nKey);
+
 
                 if (!neighborNode) {
                     neighborNode = new Node(neighbor.x, neighbor.y);
                     allNodes.set(nKey, neighborNode);
-                    openList.push(neighborNode);
                 } else if (gScore >= neighborNode.g) {
                     continue; // No es un mejor camino
                 }
+
 
                 // Este es el mejor camino hasta ahora
                 neighborNode.parent = currentNode;
@@ -402,24 +265,113 @@ class ServerZombie {
                 neighborNode.h = this.heuristic(neighborNode, targetX, targetY);
                 neighborNode.f = neighborNode.g + neighborNode.h;
 
+
                 if (!openList.includes(neighborNode)) {
                     openList.push(neighborNode);
                 }
             }
         }
 
+
         return []; // No se encontró camino
     }
 }
 
-// ... (código de ServerPlayer) ...
 
-### 2. Implementación de IA del Zombi con A\* en `ServerZombie`
+// --- ENTIDADES ---
 
-Modifico `ServerZombie.update` para usar la ruta A\* y realizar el movimiento hacia el siguiente punto de la ruta en lugar de directamente hacia el jugador.
 
-```javascript
-// ... (código anterior de ServerPlayer) ...
+/**
+ * Clase Player del Servidor.
+ * Gestiona el estado, movimiento, y disparo basándose en la entrada del cliente.
+ */
+class ServerPlayer {
+    constructor(id, x, y, speed = 3) {
+        this.id = id; // Socket ID del jugador
+        this.x = x; this.y = y;
+        this.radius = 15;
+        this.speed = speed;
+        this.health = 100;
+        this.maxHealth = 100;
+        this.kills = 0;
+        this.lastShot = Date.now();
+        this.fireRate = 200; // Milisegundos entre disparos (5 disparos/seg)
+
+
+        // Almacena la última entrada recibida del cliente
+        this.input = { moveX: 0, moveY: 0, shootX: 0, shootY: 0 }; 
+    }
+
+
+    /**
+     * Actualiza el estado del jugador (movimiento y disparo)
+     * @param {ServerMapGenerator} map
+     * @param {Array<ServerBullet>} bulletsArray - Array mutable para añadir balas
+     */
+    update(map, bulletsArray) {
+        // --- 1. MOVIMIENTO ---
+        const dx = this.input.moveX;
+        const dy = this.input.moveY;
+        const length = Math.sqrt(dx * dx + dy * dy);
+
+
+        if (length > 0) {
+            const normalizedX = dx / length;
+            const normalizedY = dy / length;
+
+
+            const newX = this.x + normalizedX * this.speed;
+            const newY = this.y + normalizedY * this.speed;
+
+
+            // Colisión con Paredes (Comprobación simple)
+            // Se mueve solo en las coordenadas que no tienen colisión.
+            if (!map.isWall(newX, this.y)) {
+                this.x = newX;
+            }
+            if (!map.isWall(this.x, newY)) {
+                this.y = newY;
+            }
+        }
+
+
+        // --- 2. DISPARO ---
+        if (this.input.shootX !== 0 || this.input.shootY !== 0) {
+            const now = Date.now();
+            if (now - this.lastShot >= this.fireRate) {
+                // Calcular ángulo/dirección del disparo
+                const sx = this.input.shootX;
+                const sy = this.input.shootY;
+                const slength = Math.sqrt(sx * sx + sy * sy);
+
+
+                if (slength > 0) {
+                    const dirX = sx / slength;
+                    const dirY = sy / slength;
+
+
+                    // Crear la bala y añadirla al array global de balas
+                    const bullet = new ServerBullet(
+                        this.x + dirX * this.radius, // Spawn ligeramente delante
+                        this.y + dirY * this.radius,
+                        dirX, dirY,
+                        this.id // ID del jugador que disparó
+                    );
+                    bulletsArray.push(bullet);
+                    this.lastShot = now;
+                }
+            }
+        }
+    }
+
+
+    takeDamage(damage) {
+        this.health -= damage;
+        if (this.health < 0) this.health = 0;
+        return this.health === 0; // Devuelve true si el jugador ha muerto
+    }
+}
+
 
 /**
  * Clase Zombie del Servidor.
@@ -450,6 +402,7 @@ class ServerZombie {
      */
     update(map, players) {
         // --- 1. SELECCIÓN DE OBJETIVO (IA) ---
+        // En multijugador, el zombie persigue al jugador más cercano.
         let closestPlayer = null;
         let minDistSq = Infinity;
 
@@ -466,6 +419,7 @@ class ServerZombie {
         if (!closestPlayer) return; // No hay jugadores activos
         this.targetId = closestPlayer.id;
 
+
         const targetX = closestPlayer.x;
         const targetY = closestPlayer.y;
         
@@ -476,6 +430,7 @@ class ServerZombie {
 
         // --- 2. MOVER HACIA EL OBJETIVO (A*) ---
 
+
         // Recalcular el pathfinding periódicamente o si el camino actual se agotó
         this.repathTimer++;
         if (this.repathTimer >= this.REPATH_INTERVAL || this.path.length === 0) {
@@ -483,18 +438,22 @@ class ServerZombie {
             this.repathTimer = 0;
         }
 
+
         let nextWaypoint = null;
         if (this.path.length > 0) {
             nextWaypoint = this.path[0];
         }
 
+
         if (distance > this.radius + closestPlayer.radius) {
             let moveTargetX, moveTargetY;
+
 
             if (nextWaypoint) {
                  // Moverse hacia el siguiente waypoint
                 moveTargetX = nextWaypoint.x;
                 moveTargetY = nextWaypoint.y;
+
 
                 const distToWaypointSq = (moveTargetX - this.x)**2 + (moveTargetY - this.y)**2;
                 
@@ -512,11 +471,13 @@ class ServerZombie {
                     }
                 }
 
+
             } else {
                 // Si no hay ruta A* (probablemente cerca del jugador o sin camino), ir directo
                 moveTargetX = targetX;
                 moveTargetY = targetY;
             }
+
 
             // Calcular el movimiento hacia el punto objetivo (waypoint o jugador)
             dx = moveTargetX - this.x;
@@ -528,8 +489,10 @@ class ServerZombie {
                 const normalizedX = dx / moveDistance;
                 const normalizedY = dy / moveDistance;
 
+
                 const newX = this.x + normalizedX * this.speed;
                 const newY = this.y + normalizedY * this.speed;
+
 
                 // Colisión con Paredes (Comprobación simple)
                 // Se mueve solo en las coordenadas que no tienen colisión.
@@ -560,7 +523,7 @@ class ServerZombie {
     }
 }
 
-// ... (código de ServerBullet y module.exports) ...
+
 
 
 /**
@@ -577,7 +540,8 @@ class ServerBullet {
         this.radius = 4;
         this.ownerId = ownerId;
     }
-    
+
+
     /**
      * Actualiza el estado de la bala (movimiento)
      * @param {ServerMapGenerator} map
@@ -586,15 +550,19 @@ class ServerBullet {
     update(map) {
         this.x += this.dirX * this.speed;
         this.y += this.dirY * this.speed;
-        
+
+
         // Colisión con Paredes y Límites del Mapa
         if (map.isWall(this.x, this.y)) {
             return true; // Indica que debe ser eliminada
         }
-        
+
+
         return false; // Continúa viva
     }
 }
+
+
 
 
 // Exportar las clases que el servidor principal necesita
@@ -603,5 +571,5 @@ module.exports = {
     ServerPlayer, 
     ServerZombie, 
     ServerBullet,
-    Node // Aunque solo se usa internamente, es útil para el A*
+    Node // Exportar Node es necesario ya que se usa en ServerMapGenerator
 };

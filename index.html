@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Zombie Defense</title>
+    
     <style>
-        /* ... (CSS sin cambios) ... */
+        /* CSS General y de Reset */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            /* Desactiva la selección de texto en móviles */
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
@@ -19,49 +21,15 @@
             background: #000;
             overflow: hidden;
             font-family: 'Arial', sans-serif;
+            /* Evita el rebote de scroll y acciones táctiles por defecto */
             touch-action: none;
         }
         
+        /* Elementos del Juego (Canvas y Joysticks) */
         #gameCanvas {
             display: block;
             background: #1a1a1a;
             touch-action: none;
-        }
-        
-        .hud {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: #fff;
-            font-size: 18px;
-            text-shadow: 2px 2px 4px #000;
-            z-index: 10;
-            background: rgba(0,0,0,0.5);
-            padding: 10px;
-            border-radius: 5px;
-        }
-        
-        .wave-info {
-            position: absolute;
-            top: 10px;
-            right: 180px; /* Ajuste para el minimapa */
-            color: #ff3333;
-            font-size: 20px;
-            font-weight: bold;
-            text-shadow: 2px 2px 4px #000;
-            z-index: 10;
-            background: rgba(0,0,0,0.5);
-            padding: 10px;
-            border-radius: 5px;
-        }
-        
-        .minimap {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            border: 2px solid #fff;
-            background: rgba(0,0,0,0.7);
-            z-index: 10;
         }
         
         .joystick {
@@ -93,9 +61,76 @@
         
         #shootJoystick {
             bottom: 20px;
-            right: 20px; /* Movido a la derecha extrema */
+            right: 20px;
         }
         
+        /* HUD (Puntuación, Oleada, Salud) */
+        .hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px #000;
+            z-index: 10;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .wave-info {
+            position: absolute;
+            top: 10px;
+            right: 180px; /* Espacio para el minimapa */
+            color: #ff3333;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px #000;
+            z-index: 10;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .minimap {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            border: 2px solid #fff;
+            background: rgba(0,0,0,0.7);
+            z-index: 10;
+        }
+
+        .health-bar {
+            position: absolute;
+            top: 70px;
+            left: 10px;
+            width: 200px;
+            height: 30px;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid #fff;
+            border-radius: 5px;
+            overflow: hidden;
+            z-index: 10;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(to right, #ff0000, #00ff00);
+            transition: width 0.3s;
+        }
+        
+        .health-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            line-height: 30px;
+            color: #fff;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        /* Estructura de Menús */
         .menu {
             position: absolute;
             top: 50%;
@@ -135,14 +170,22 @@
             background: #cc0000;
         }
         
+        .menu button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
         .menu label {
             display: block;
             margin: 15px 0 5px 0;
             font-size: 14px;
         }
-        
+
+        .menu input[type="text"], 
         .menu input[type="range"] {
             width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
         }
         
         .menu .value-display {
@@ -151,6 +194,7 @@
             color: #ff3333;
         }
         
+        /* Estilos específicos de menús */
         .game-over {
             text-align: center;
         }
@@ -166,41 +210,33 @@
             margin: 20px 0;
         }
         
+        #lobbiesContainer {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            background: rgba(255,255,255,0.05);
+            padding: 5px;
+        }
+        
+        #lobbyPlayersList {
+            list-style-type: none;
+            padding: 0;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        #lobbyPlayersList li {
+            padding: 5px;
+            border-bottom: 1px solid #444;
+        }
+
+        /* Clase de control: oculta el elemento */
         .hidden {
             display: none;
-        }
-        
-        .health-bar {
-            position: absolute;
-            top: 70px;
-            left: 10px;
-            width: 200px;
-            height: 30px;
-            background: rgba(0,0,0,0.5);
-            border: 2px solid #fff;
-            border-radius: 5px;
-            overflow: hidden;
-            z-index: 10;
-        }
-        
-        .health-fill {
-            height: 100%;
-            background: linear-gradient(to right, #ff0000, #00ff00);
-            transition: width 0.3s;
-        }
-        
-        .health-text {
-            position: absolute;
-            width: 100%;
-            text-align: center;
-            line-height: 30px;
-            color: #fff;
-            font-weight: bold;
-            text-shadow: 1px 1px 2px #000;
         }
     </style>
 </head>
 <body>
+    
     <canvas id="gameCanvas"></canvas>
     
     <div class="hud">
@@ -228,10 +264,16 @@
         <div class="joystick-knob" id="shootKnob"></div>
     </div>
     
+
     <div class="menu" id="mainMenu">
         <h1>🧟 ZOMBIE DEFENSE</h1>
-        <button onclick="startGame()">JUGAR</button>
+        
+        <button onclick="startGame()">JUGAR (1 JUGADOR)</button>
+        
+        <button onclick="showMultiplayerMenu()">MULTIJUGADOR</button>
+        
         <button onclick="showSettings()">CONFIGURACIÓN</button>
+        
         <div style="margin-top: 20px; font-size: 12px; text-align: center; color: #888;">
             Defiende tu posición de las oleadas de zombies
         </div>
@@ -240,24 +282,16 @@
     <div class="menu hidden" id="settingsMenu">
         <h1>⚙️ CONFIGURACIÓN</h1>
         
-        <label>
-            Dificultad: <span class="value-display" id="difficultyValue">Normal</span>
-        </label>
+        <label>Dificultad: <span class="value-display" id="difficultyValue">Normal</span></label>
         <input type="range" id="difficulty" min="1" max="3" value="2" oninput="updateSettings()">
         
-        <label>
-            Tamaño Mapa: <span class="value-display" id="mapSizeValue">Mediano</span>
-        </label>
+        <label>Tamaño Mapa: <span class="value-display" id="mapSizeValue">Mediano</span></label>
         <input type="range" id="mapSize" min="30" max="70" value="50" step="10" oninput="updateSettings()">
         
-        <label>
-            Velocidad Jugador: <span class="value-display" id="playerSpeedValue">3</span>
-        </label>
+        <label>Velocidad Jugador: <span class="value-display" id="playerSpeedValue">3</span></label>
         <input type="range" id="playerSpeed" min="2" max="5" value="3" step="0.5" oninput="updateSettings()">
         
-        <label>
-            Cadencia Disparo: <span class="value-display" id="fireRateValue">Normal</span>
-        </label>
+        <label>Cadencia Disparo: <span class="value-display" id="fireRateValue">Normal</span></label>
         <input type="range" id="fireRate" min="5" max="20" value="10" oninput="updateSettings()">
         
         <button onclick="hideSettings()">VOLVER</button>
@@ -274,878 +308,47 @@
         <button onclick="backToMenu()">MENÚ PRINCIPAL</button>
     </div>
 
-        <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const minimap = document.getElementById('minimap');
-        const minimapCtx = minimap.getContext('2d');
+    <div class="menu hidden" id="multiplayerMenu">
+        <h1>⚔️ MULTIJUGADOR</h1>
         
-        // Ajustar canvas al tamaño de la ventana
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+        <label>Nombre de Jugador:</label>
+        <input type="text" id="playerNameInput" placeholder="Tu Nombre">
         
-        // Variables del juego
-        let gameState = 'menu';
-        let score = 0;
-        let kills = 0;
-        let wave = 1;
-        let zombiesInWave = 0;
-        let zombiesSpawned = 0;
+        <button onclick="createNewLobby()">CREAR PARTIDA</button>
         
-        // Configuración
-        let config = {
-            difficulty: 2,
-            mapSize: 50,
-            playerSpeed: 3,
-            fireRate: 10
-        };
+        <button onclick="showLobbiesList()">BUSCAR PARTIDA</button>
         
-        // ------------------------------------------------------------------
-        // --- CLASE AUXILIAR NODE (MOVIMIENTO AL ÁMBITO GLOBAL) ---
-        // ------------------------------------------------------------------
-        class Node {
-            constructor(x, y, g = 0, h = 0, parent = null) {
-                this.x = x;
-                this.y = y;
-                this.g = g; // Coste desde el inicio
-                this.h = h; // Heurística hasta el final
-                this.f = g + h; // Coste total
-                this.parent = parent;
-            }
-        }
-
-        // Generador de mapas laberíntico
-        class MapGenerator {
-            constructor(size) {
-                this.size = size;
-                this.cellSize = 40;
-                this.map = [];
-                this.rooms = [];
-                this.generate();
-            }
-            
-            generate() {
-                // Inicializar mapa con paredes
-                for (let y = 0; y < this.size; y++) {
-                    this.map[y] = [];
-                    for (let x = 0; x < this.size; x++) {
-                        this.map[y][x] = 1; // 1 = pared
-                    }
-                }
-                
-                // Generar salas
-                const numRooms = Math.floor(this.size / 5);
-                for (let i = 0; i < numRooms; i++) {
-                    const w = 4 + Math.floor(Math.random() * 6);
-                    const h = 4 + Math.floor(Math.random() * 6);
-                    const x = 2 + Math.floor(Math.random() * (this.size - w - 4));
-                    const y = 2 + Math.floor(Math.random() * (this.size - h - 4));
-                    
-                    this.createRoom(x, y, w, h);
-                    this.rooms.push({x, y, w, h, cx: x + Math.floor(w/2), cy: y + Math.floor(h/2)});
-                }
-                
-                // Conectar salas con pasillos
-                for (let i = 0; i < this.rooms.length - 1; i++) {
-                    this.createCorridor(
-                        this.rooms[i].cx, this.rooms[i].cy,
-                        this.rooms[i + 1].cx, this.rooms[i + 1].cy
-                    );
-                }
-                
-                // Sala central para el jugador
-                const center = Math.floor(this.size / 2);
-                this.createRoom(center - 3, center - 3, 7, 7);
-                this.spawnPoint = {x: center * this.cellSize + this.cellSize/2, y: center * this.cellSize + this.cellSize/2};
-            }
-            
-            createRoom(x, y, w, h) {
-                for (let j = y; j < y + h && j < this.size; j++) {
-                    for (let i = x; i < x + w && i < this.size; i++) {
-                        this.map[j][i] = 0; // 0 = espacio libre
-                    }
-                }
-            }
-            
-            createCorridor(x1, y1, x2, y2) {
-                let x = x1, y = y1;
-                while (x !== x2) {
-                    this.map[y][x] = 0;
-                    if (y > 0) this.map[y-1][x] = 0;
-                    if (y < this.size - 1) this.map[y+1][x] = 0;
-                    x += x < x2 ? 1 : -1;
-                }
-                while (y !== y2) {
-                    this.map[y][x] = 0;
-                    if (x > 0) this.map[y][x-1] = 0;
-                    if (x < this.size - 1) this.map[y][x+1] = 0;
-                    y += y < y2 ? 1 : -1;
-                }
-            }
-            
-            isWall(x, y) {
-                const gx = Math.floor(x / this.cellSize);
-                const gy = Math.floor(y / this.cellSize);
-                if (gx < 0 || gx >= this.size || gy < 0 || gy >= this.size) return true;
-                return this.map[gy][gx] === 1;
-            }
-            
-            getRandomOpenSpot() {
-                let x, y, gx, gy;
-                do {
-                    gx = Math.floor(Math.random() * this.size);
-                    gy = Math.floor(Math.random() * this.size);
-                } while (this.map[gy][gx] === 1 || this.isCloseToPlayer(gx, gy)); // Asegurar que no es pared y no está muy cerca
-                
-                x = gx * this.cellSize + this.cellSize / 2;
-                y = gy * this.cellSize + this.cellSize / 2;
-                return {x, y};
-            }
-
-            isCloseToPlayer(gx, gy) {
-                const px = Math.floor(player.x / this.cellSize);
-                const py = Math.floor(player.y / this.cellSize);
-                const distSq = (gx - px) * (gx - px) + (gy - py) * (gy - py);
-                return distSq < 100; // Distancia mínima de 10 celdas
-            }
-            
-            draw(offsetX, offsetY) {
-                for (let y = 0; y < this.size; y++) {
-                    for (let x = 0; x < this.size; x++) {
-                        if (this.map[y][x] === 1) {
-                            const px = x * this.cellSize - offsetX;
-                            const py = y * this.cellSize - offsetY;
-                            
-                            if (px > -this.cellSize && px < canvas.width + this.cellSize &&
-                                py > -this.cellSize && py < canvas.height + this.cellSize) {
-                                ctx.fillStyle = '#333';
-                                ctx.fillRect(px, py, this.cellSize, this.cellSize);
-                                ctx.strokeStyle = '#222';
-                                ctx.strokeRect(px, py, this.cellSize, this.cellSize);
-                            }
-                        } else {
-                            const px = x * this.cellSize - offsetX;
-                            const py = y * this.cellSize - offsetY;
-                            
-                            if (px > -this.cellSize && px < canvas.width + this.cellSize &&
-                                py > -this.cellSize && py < canvas.height + this.cellSize) {
-                                ctx.fillStyle = '#1a1a1a';
-                                ctx.fillRect(px, py, this.cellSize, this.cellSize);
-                            }
-                        }
-                    }
-                }
-            }
-            
-            drawMinimap(player, zombies) {
-                minimapCtx.fillStyle = '#000';
-                minimapCtx.fillRect(0, 0, minimap.width, minimap.height);
-                
-                const scale = minimap.width / (this.size * this.cellSize);
-                
-                // Dibujar mapa
-                for (let y = 0; y < this.size; y++) {
-                    for (let x = 0; x < this.size; x++) {
-                        if (this.map[y][x] === 1) {
-                            minimapCtx.fillStyle = '#666';
-                        } else {
-                            minimapCtx.fillStyle = '#222';
-                        }
-                        minimapCtx.fillRect(x * this.cellSize * scale, y * this.cellSize * scale, 
-                                          this.cellSize * scale, this.cellSize * scale);
-                    }
-                }
-                
-                // Dibujar jugador
-                minimapCtx.fillStyle = '#00ff00';
-                minimapCtx.beginPath();
-                minimapCtx.arc(player.x * scale, player.y * scale, 3, 0, Math.PI * 2);
-                minimapCtx.fill();
-                
-                // Dibujar zombies
-                minimapCtx.fillStyle = '#ff0000';
-                zombies.forEach(zombie => {
-                    minimapCtx.beginPath();
-                    minimapCtx.arc(zombie.x * scale, zombie.y * scale, 2, 0, Math.PI * 2);
-                    minimapCtx.fill();
-                });
-            }
-
-            // --- INICIO DE IMPLEMENTACIÓN A* (CORREGIDA) ---
-
-            // Función heurística (distancia de Manhattan, rápida para movimiento en cuadrícula)
-            heuristic(node, target) {
-                return Math.abs(node.x - target.x) + Math.abs(node.y - target.y);
-            }
-
-            getNeighbors(node) {
-                const neighbors = [];
-                const directions = [
-                    {dx: 0, dy: -1}, // Arriba
-                    {dx: 0, dy: 1},  // Abajo
-                    {dx: -1, dy: 0}, // Izquierda
-                    {dx: 1, dy: 0}   // Derecha
-                ];
-                
-                for (const {dx, dy} of directions) {
-                    const nx = node.x + dx;
-                    const ny = node.y + dy;
-                    
-                    // Comprobar límites del mapa y que no sea pared (0 es espacio libre)
-                    if (nx >= 0 && nx < this.size && ny >= 0 && ny < this.size && this.map[ny][nx] === 0) {
-                        neighbors.push({x: nx, y: ny});
-                    }
-                }
-                return neighbors;
-            }
-
-            findPathAStar(start, end) {
-                const startGrid = {
-                    x: Math.floor(start.x / this.cellSize), 
-                    y: Math.floor(start.y / this.cellSize)
-                };
-                const endGrid = {
-                    x: Math.floor(end.x / this.cellSize), 
-                    y: Math.floor(end.y / this.cellSize)
-                };
-
-                // Comprobar si el inicio o el fin están en una pared
-                if (this.map[startGrid.y][startGrid.x] === 1 || this.map[endGrid.y][endGrid.x] === 1) return null;
-
-                let openList = [new Node(startGrid.x, startGrid.y)];
-                let closedList = new Set(); 
-                
-                const nodeMap = new Map();
-                nodeMap.set(`${startGrid.x},${startGrid.y}`, openList[0]);
-
-                while (openList.length > 0) {
-                    // Encontrar el nodo con el menor coste F
-                    openList.sort((a, b) => a.f - b.f);
-                    let currentNode = openList.shift();
-
-                    const currentKey = `${currentNode.x},${currentNode.y}`;
-                    closedList.add(currentKey);
-
-                    // Si hemos llegado al destino
-                    if (currentNode.x === endGrid.x && currentNode.y === endGrid.y) {
-                        const path = [];
-                        let temp = currentNode;
-                        while (temp) {
-                            // Convertir coordenadas de cuadrícula a coordenadas de píxeles
-                            path.push({
-                                x: temp.x * this.cellSize + this.cellSize / 2, 
-                                y: temp.y * this.cellSize + this.cellSize / 2
-                            });
-                            temp = temp.parent;
-                        }
-                        // Devolver la ruta invertida, sin incluir la posición inicial del zombie
-                        return path.reverse().slice(1); 
-                    }
-
-                    // Generar vecinos
-                    for (const neighborPos of this.getNeighbors(currentNode)) {
-                        const neighborKey = `${neighborPos.x},${neighborPos.y}`;
-
-                        if (closedList.has(neighborKey)) continue;
-
-                        let neighborNode = nodeMap.get(neighborKey);
-                        
-                        const newG = currentNode.g + 1; 
-
-                        if (!neighborNode) {
-                            // Nuevo nodo
-                            neighborNode = new Node(neighborPos.x, neighborPos.y);
-                            neighborNode.g = newG;
-                            neighborNode.h = this.heuristic(neighborNode, endGrid);
-                            neighborNode.f = neighborNode.g + neighborNode.h;
-                            neighborNode.parent = currentNode;
-                            nodeMap.set(neighborKey, neighborNode);
-                            openList.push(neighborNode);
-                        } else if (newG < neighborNode.g) {
-                            // Se encontró un camino mejor
-                            neighborNode.g = newG;
-                            neighborNode.f = neighborNode.g + neighborNode.h;
-                            neighborNode.parent = currentNode;
-                            // Asegurar que está en la openList si fue reevaluado
-                            if (!openList.includes(neighborNode)) {
-                                openList.push(neighborNode);
-                            }
-                        }
-                    }
-                }
-                
-                return null; // No se encontró camino
-            }
-
-            // --- FIN DE IMPLEMENTACIÓN A* ---
-        }
+        <button onclick="showMainMenu()">VOLVER</button>
+    </div>
+    
+    <div class="menu hidden" id="lobbiesListMenu">
+        <h1>🔍 SALAS DISPONIBLES</h1>
         
-        // Jugador
-        class Player {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.radius = 15;
-                this.speed = config.playerSpeed;
-                this.health = 100;
-                this.maxHealth = 100;
-                this.moveX = 0;
-                this.moveY = 0;
-                this.shootX = 0;
-                this.shootY = 0;
-                this.lastShot = 0;
-            }
-            
-            update() {
-                if (this.moveX !== 0 || this.moveY !== 0) {
-                    // Normalizar el vector de movimiento para que no se mueva más rápido en diagonal
-                    const mag = Math.sqrt(this.moveX * this.moveX + this.moveY * this.moveY);
-                    const moveVecX = this.moveX / mag;
-                    const moveVecY = this.moveY / mag;
+        <div id="lobbiesContainer">
+            </div>
+        
+        <button onclick="showMultiplayerMenu()">VOLVER</button>
+    </div>
+    
+    <div class="menu hidden" id="lobbyWaitMenu">
+        <h1>🚪 SALA DE ESPERA</h1>
+        
+        <p>ID de Partida: <strong id="lobbyIdDisplay" style="color: #00ff00; font-size: 20px;">...</strong></p>
+        
+        <h3 style="margin-top: 15px;">Jugadores:</h3>
+        
+        <ul id="lobbyPlayersList">
+            </ul>
+        
+        <button id="startMultiplayerButton" class="hidden" onclick="requestStartGame()">INICIAR PARTIDA</Vbutton>
+        
+        <button onclick="showMultiplayerMenu()">SALIR DEL LOBBY</button>
+    </div>
 
-                    const newX = this.x + moveVecX * this.speed;
-                    const newY = this.y + moveVecY * this.speed;
-                    
-                    // Colisión con paredes (revisión de esquinas y centro del jugador)
-                    const checks = [
-                        {dx: 0, dy: 0}, 
-                        {dx: this.radius - 1, dy: 0}, {dx: -(this.radius - 1), dy: 0},
-                        {dx: 0, dy: this.radius - 1}, {dx: 0, dy: -(this.radius - 1)}
-                    ];
 
-                    let canMoveX = true;
-                    for (const {dx, dy} of checks) {
-                        if (gameMap.isWall(newX + dx, this.y + dy)) {
-                            canMoveX = false;
-                            break;
-                        }
-                    }
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
 
-                    let canMoveY = true;
-                    for (const {dx, dy} of checks) {
-                        if (gameMap.isWall(this.x + dx, newY + dy)) {
-                            canMoveY = false;
-                            break;
-                        }
-                    }
-
-                    if (canMoveX) this.x = newX;
-                    if (canMoveY) this.y = newY;
-                }
-                
-                // Disparar automáticamente
-                if ((this.shootX !== 0 || this.shootY !== 0) && Date.now() - this.lastShot > 1000 / config.fireRate) {
-                    bullets.push(new Bullet(this.x, this.y, this.shootX, this.shootY));
-                    this.lastShot = Date.now();
-                }
-            }
-            
-            draw(offsetX, offsetY) {
-                ctx.fillStyle = '#00ff00';
-                ctx.beginPath();
-                ctx.arc(this.x - offsetX, this.y - offsetY, this.radius, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Dirección de disparo
-                if (this.shootX !== 0 || this.shootY !== 0) {
-                    ctx.strokeStyle = '#ffff00';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.moveTo(this.x - offsetX, this.y - offsetY);
-                    ctx.lineTo(this.x - offsetX + this.shootX * 25, this.y - offsetY + this.shootY * 25);
-                    ctx.stroke();
-                }
-            }
-            
-            damage(amount) {
-                this.health -= amount;
-                if (this.health <= 0) {
-                    this.health = 0;
-                    gameOver();
-                }
-                updateHealthBar();
-            }
-        }
-        
-        // Zombie
-        class Zombie {
-            constructor(x, y, type = 'normal') {
-                this.x = x;
-                this.y = y;
-                this.type = type;
-                this.radius = type === 'fast' ? 12 : 14;
-                this.speed = type === 'fast' ? 1.5 : 0.8;
-                this.health = type === 'tank' ? 3 : 1;
-                this.damage = type === 'tank' ? 15 : 10;
-                this.color = type === 'fast' ? '#ff6666' : type === 'tank' ? '#cc0000' : '#ff0000';
-                this.lastAttack = 0;
-
-                // --- PROPIEDADES AÑADIDAS PARA PATHFINDING ---
-                this.path = []; // La ruta calculada: una lista de coordenadas {x, y}
-                this.pathUpdateTimer = 0;
-                this.pathUpdateInterval = 60; // Recalcular cada 60 frames (aprox 1s)
-            }
-            
-            update() {
-                const dx = player.x - this.x;
-                const dy = player.y - this.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                
-                // 1. Lógica de ataque: si está cerca, atacar y no moverse
-                if (dist < this.radius + player.radius) {
-                    if (Date.now() - this.lastAttack > 1000 / (config.difficulty * 0.5)) {
-                        player.damage(this.damage);
-                        this.lastAttack = Date.now();
-                    }
-                    return; 
-                }
-                
-                // 2. Lógica de Pathfinding
-                this.pathUpdateTimer++;
-                
-                // Recalcular la ruta al jugador si el temporizador ha expirado o no hay ruta
-                if (this.pathUpdateTimer >= this.pathUpdateInterval || this.path.length === 0) {
-                    this.path = gameMap.findPathAStar(this, player);
-                    this.pathUpdateTimer = 0;
-                }
-                
-                // 3. Moverse hacia el siguiente punto de la ruta
-                if (this.path && this.path.length > 0) {
-                    const target = this.path[0];
-                    const moveX = target.x - this.x;
-                    const moveY = target.y - this.y;
-                    const moveDist = Math.sqrt(moveX * moveX + moveY * moveY);
-                    
-                    const normalizedSpeed = this.speed * (config.difficulty * 0.5);
-                    
-                    if (moveDist < normalizedSpeed) {
-                        // Hemos llegado o casi llegado al nodo, pasar al siguiente
-                        this.x = target.x;
-                        this.y = target.y;
-                        this.path.shift();
-                    } else {
-                        // Moverse al nodo
-                        this.x += (moveX / moveDist) * normalizedSpeed;
-                        this.y += (moveY / moveDist) * normalizedSpeed;
-                    }
-                } 
-            }
-            
-            draw(offsetX, offsetY) {
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x - offsetX, this.y - offsetY, this.radius, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Ojos
-                ctx.fillStyle = '#000';
-                ctx.fillRect(this.x - offsetX - 5, this.y - offsetY - 3, 3, 3);
-                ctx.fillRect(this.x - offsetX + 2, this.y - offsetY - 3, 3, 3);
-            }
-            
-            hit() {
-                this.health--;
-                return this.health <= 0;
-            }
-        }
-        
-        // Bala
-        class Bullet {
-            constructor(x, y, dirX, dirY) {
-                this.x = x;
-                this.y = y;
-                this.dirX = dirX;
-                this.dirY = dirY;
-                this.speed = 8;
-                this.radius = 4;
-                this.dead = false;
-            }
-            
-            update() {
-                this.x += this.dirX * this.speed;
-                this.y += this.dirY * this.speed;
-                
-                if (gameMap.isWall(this.x, this.y)) {
-                    this.dead = true;
-                }
-                
-                // Colisión con zombies
-                zombies.forEach(zombie => {
-                    const dx = this.x - zombie.x;
-                    const dy = this.y - zombie.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (dist < this.radius + zombie.radius) {
-                        if (zombie.hit()) {
-                            zombies = zombies.filter(z => z !== zombie);
-                            zombiesInWave--;
-                            kills++;
-                            score += zombie.type === 'tank' ? 30 : zombie.type === 'fast' ? 15 : 10;
-                            updateHUD();
-                        }
-                        this.dead = true;
-                    }
-                });
-            }
-            
-            draw(offsetX, offsetY) {
-                ctx.fillStyle = '#ffff00';
-                ctx.beginPath();
-                ctx.arc(this.x - offsetX, this.y - offsetY, this.radius, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-        
-        // Joystick virtual (IMPLEMENTACIÓN MODIFICADA PARA MULTITOUCH)
-        class VirtualJoystick {
-            constructor(element, knobElement) {
-                this.element = element;
-                this.knob = knobElement;
-                this.active = false;
-                this.touchId = null; // Almacena el ID del toque que activó este joystick
-                this.x = 0;
-                this.y = 0;
-                this.centerX = 60;
-                this.centerY = 60;
-                this.maxDistance = 35;
-                
-                // Solo escuchamos 'touchstart' en el elemento del joystick
-                this.element.addEventListener('touchstart', this.onTouchStart.bind(this), {passive: false});
-
-                // Los eventos de movimiento y finalización deben ser rastreados en todo el documento/ventana
-                // Esto se hace en initGame para asegurar que los listeners solo se añaden una vez
-            }
-            
-            onTouchStart(e) {
-                // Si el joystick ya está activo, ignorar toques adicionales en su área
-                if (this.active) return;
-                
-                // Buscar el primer toque que comenzó dentro del elemento
-                const touch = Array.from(e.changedTouches).find(t => {
-                    const rect = this.element.getBoundingClientRect();
-                    return t.clientX >= rect.left && t.clientX <= rect.right &&
-                           t.clientY >= rect.top && t.clientY <= rect.bottom;
-                });
-                
-                if (touch) {
-                    e.preventDefault();
-                    this.active = true;
-                    this.touchId = touch.identifier; // Guardar el ID del toque
-                    this.updatePosition(touch);
-                }
-            }
-            
-            // onTouchMove y onTouchEnd serán llamados por los listeners globales
-            
-            handleTouchMove(e) {
-                if (!this.active || this.touchId === null) return;
-                
-                // Encontrar el toque que corresponde a nuestro ID
-                const touch = Array.from(e.changedTouches).find(t => t.identifier === this.touchId);
-                
-                if (touch) {
-                    e.preventDefault();
-                    this.updatePosition(touch);
-                }
-            }
-            
-            handleTouchEnd(e) {
-                if (!this.active || this.touchId === null) return;
-
-                // Encontrar si el toque finalizado corresponde a nuestro ID
-                const touchEnded = Array.from(e.changedTouches).find(t => t.identifier === this.touchId);
-
-                if (touchEnded) {
-                    e.preventDefault(); // Opcional, dependiendo del SO/navegador
-                    this.active = false;
-                    this.touchId = null; // Liberar el ID de toque
-                    this.x = 0;
-                    this.y = 0;
-                    this.knob.style.transform = 'translate(-50%, -50%)';
-                }
-            }
-            
-            updatePosition(touch) {
-                const rect = this.element.getBoundingClientRect();
-                const deltaX = touch.clientX - (rect.left + this.centerX);
-                const deltaY = touch.clientY - (rect.top + this.centerY);
-                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                
-                if (distance > this.maxDistance) {
-                    this.x = (deltaX / distance) * this.maxDistance;
-                    this.y = (deltaY / distance) * this.maxDistance;
-                } else {
-                    this.x = deltaX;
-                    this.y = deltaY;
-                }
-                
-                this.knob.style.transform = `translate(calc(-50% + ${this.x}px), calc(-50% + ${this.y}px))`;
-            }
-            
-            getVector() {
-                if (!this.active) return {x: 0, y: 0};
-                const distance = Math.sqrt(this.x * this.x + this.y * this.y);
-                if (distance === 0) return {x: 0, y: 0};
-                return {
-                    x: this.x / distance,
-                    y: this.y / distance
-                };
-            }
-        }
-        
-        // Variables del juego
-        let gameMap;
-        let player;
-        let zombies = [];
-        let bullets = [];
-        let moveJoystick;
-        let shootJoystick;
-
-        // Añadir listeners globales para el multitouch (solo una vez)
-        let globalListenersAdded = false;
-
-        function addGlobalJoystickListeners() {
-            if (globalListenersAdded) return;
-            
-            // Añadir listeners a la ventana para capturar el movimiento y el fin del toque
-            // incluso si el dedo se mueve fuera del área del joystick.
-            window.addEventListener('touchmove', (e) => {
-                if (moveJoystick) moveJoystick.handleTouchMove(e);
-                if (shootJoystick) shootJoystick.handleTouchMove(e);
-            }, {passive: false});
-
-            window.addEventListener('touchend', (e) => {
-                if (moveJoystick) moveJoystick.handleTouchEnd(e);
-                if (shootJoystick) shootJoystick.handleTouchEnd(e);
-            }, {passive: false});
-
-            window.addEventListener('touchcancel', (e) => {
-                // touchcancel maneja situaciones como recibir una llamada
-                if (moveJoystick) moveJoystick.handleTouchEnd(e); 
-                if (shootJoystick) shootJoystick.handleTouchEnd(e);
-            }, {passive: false});
-            
-            globalListenersAdded = true;
-        }
-        
-        // Inicializar juego
-        function initGame() {
-            addGlobalJoystickListeners(); // Asegurar listeners globales
-            
-            gameMap = new MapGenerator(config.mapSize);
-            player = new Player(gameMap.spawnPoint.x, gameMap.spawnPoint.y);
-            player.speed = config.playerSpeed;
-            zombies = [];
-            bullets = [];
-            score = 0;
-            kills = 0;
-            wave = 1;
-            
-            // Re-inicializar joysticks (llamando al constructor, que añade el touchstart local)
-            moveJoystick = new VirtualJoystick(
-                document.getElementById('moveJoystick'),
-                document.getElementById('moveKnob')
-            );
-            
-            shootJoystick = new VirtualJoystick(
-                document.getElementById('shootJoystick'),
-                document.getElementById('shootKnob')
-            );
-            
-            startWave();
-            updateHUD();
-            updateHealthBar();
-        }
-        
-        // ... (Resto del código sin cambios) ...
-        
-        // Iniciar oleada
-        function startWave() {
-            zombiesInWave = Math.floor(5 + wave * 3 * (config.difficulty * 0.75));
-            zombiesSpawned = 0;
-            updateHUD();
-        }
-        
-        // Generar zombie
-        function spawnZombie() {
-            if (zombiesSpawned >= zombiesInWave) return;
-            
-            // Usar la función mejorada para un punto abierto y alejado del jugador
-            const spawnPos = gameMap.getRandomOpenSpot();
-
-            // Tipo de zombie según oleada
-            let type = 'normal';
-            if (wave >= 3 && Math.random() < 0.25 * config.difficulty) type = 'fast';
-            if (wave >= 5 && Math.random() < 0.15 * config.difficulty) type = 'tank';
-            
-            zombies.push(new Zombie(spawnPos.x, spawnPos.y, type));
-            zombiesSpawned++;
-            updateHUD();
-        }
-        
-        // Actualizar HUD
-        function updateHUD() {
-            document.getElementById('score').textContent = score;
-            document.getElementById('kills').textContent = kills;
-            document.getElementById('wave').textContent = wave;
-            document.getElementById('zombiesLeft').textContent = zombiesInWave - zombies.length; // Zombies restantes a matar
-        }
-        
-        // Actualizar barra de salud
-        function updateHealthBar() {
-            const percentage = (player.health / player.maxHealth) * 100;
-            document.getElementById('healthFill').style.width = percentage + '%';
-            document.getElementById('healthText').textContent = Math.ceil(player.health) + ' / ' + player.maxHealth;
-        }
-        
-        // Game loop
-        let lastSpawn = 0;
-        let spawnInterval = 2000;
-        function gameLoop() {
-            if (gameState !== 'playing') return;
-            
-            // Limpiar canvas
-            ctx.fillStyle = '#0a0a0a';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Calcular offset de cámara
-            const offsetX = player.x - canvas.width / 2;
-            const offsetY = player.y - canvas.height / 2;
-            
-            // Dibujar mapa
-            gameMap.draw(offsetX, offsetY);
-            
-            // Actualizar jugador
-            const moveVec = moveJoystick.getVector();
-            player.moveX = moveVec.x;
-            player.moveY = moveVec.y;
-            
-            const shootVec = shootJoystick.getVector();
-            player.shootX = shootVec.x;
-            player.shootY = shootVec.y;
-            
-            player.update();
-            player.draw(offsetX, offsetY);
-            
-            // Actualizar y dibujar balas
-            bullets = bullets.filter(b => !b.dead);
-            bullets.forEach(bullet => {
-                bullet.update();
-                bullet.draw(offsetX, offsetY);
-            });
-            
-            // Spawn zombies
-            // Ajustar la cadencia de spawn para que la dificultad sea evidente
-            spawnInterval = Math.max(500, 2000 - (wave * 50) - (config.difficulty * 100)); 
-            
-            if (Date.now() - lastSpawn > spawnInterval && zombiesSpawned < zombiesInWave) {
-                spawnZombie();
-                lastSpawn = Date.now();
-            }
-            
-            // Actualizar y dibujar zombies
-            zombies.forEach(zombie => {
-                zombie.update();
-                zombie.draw(offsetX, offsetY);
-            });
-            
-            // Comprobar fin de oleada
-            if (zombiesSpawned >= zombiesInWave && zombies.length === 0) {
-                wave++;
-                player.health = player.maxHealth; // Curación al pasar de oleada
-                updateHealthBar();
-                startWave();
-            }
-            
-            // Dibujar minimapa
-            gameMap.drawMinimap(player, zombies);
-            
-            requestAnimationFrame(gameLoop);
-        }
-        
-        // --- Gestión de Menús y Estado del Juego ---
-        
-        function startGame() {
-            document.getElementById('mainMenu').classList.add('hidden');
-            document.getElementById('gameOverMenu').classList.add('hidden');
-            document.getElementById('moveJoystick').classList.remove('hidden');
-            document.getElementById('shootJoystick').classList.remove('hidden');
-            
-            gameState = 'playing';
-            initGame();
-            gameLoop();
-        }
-        
-        function showSettings() {
-            document.getElementById('mainMenu').classList.add('hidden');
-            document.getElementById('settingsMenu').classList.remove('hidden');
-            updateSettings(); // Inicializar con valores actuales
-        }
-        
-        function hideSettings() {
-            document.getElementById('settingsMenu').classList.add('hidden');
-            document.getElementById('mainMenu').classList.remove('hidden');
-        }
-        
-        function updateSettings() {
-            const difficultyEl = document.getElementById('difficulty');
-            const mapSizeEl = document.getElementById('mapSize');
-            const playerSpeedEl = document.getElementById('playerSpeed');
-            const fireRateEl = document.getElementById('fireRate');
-            
-            config.difficulty = parseInt(difficultyEl.value);
-            config.mapSize = parseInt(mapSizeEl.value);
-            config.playerSpeed = parseFloat(playerSpeedEl.value);
-            config.fireRate = parseInt(fireRateEl.value);
-            
-            // Mostrar valores
-            document.getElementById('difficultyValue').textContent = 
-                config.difficulty === 1 ? 'Fácil' : config.difficulty === 2 ? 'Normal' : 'Difícil';
-            
-            document.getElementById('mapSizeValue').textContent = 
-                config.mapSize === 30 ? 'Pequeño' : config.mapSize === 50 ? 'Mediano' : 'Grande';
-            
-            document.getElementById('playerSpeedValue').textContent = config.playerSpeed;
-            
-            document.getElementById('fireRateValue').textContent = 
-                config.fireRate >= 15 ? 'Rápida' : config.fireRate >= 10 ? 'Normal' : 'Lenta';
-            
-            // Si el juego está en curso, actualizar la velocidad del jugador
-            if (gameState === 'playing' && player) {
-                player.speed = config.playerSpeed;
-            }
-        }
-        
-        function gameOver() {
-            gameState = 'gameOver';
-            
-            document.getElementById('finalScore').textContent = score;
-            document.getElementById('finalWave').textContent = wave;
-            document.getElementById('finalKills').textContent = kills;
-            
-            document.getElementById('moveJoystick').classList.add('hidden');
-            document.getElementById('shootJoystick').classList.add('hidden');
-            document.getElementById('gameOverMenu').classList.remove('hidden');
-        }
-        
-        function restartGame() {
-            startGame();
-        }
-        
-        function backToMenu() {
-            document.getElementById('gameOverMenu').classList.add('hidden');
-            document.getElementById('mainMenu').classList.remove('hidden');
-            gameState = 'menu';
-        }
-
-        // Asegurar que la configuración inicial se muestra al cargar
-        document.addEventListener('DOMContentLoaded', updateSettings);
-    </script>
-
+    <script type="module" src="js/game.js"></script>
+    
 </body>
 </html>
-

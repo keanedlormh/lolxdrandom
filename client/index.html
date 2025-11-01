@@ -6,24 +6,296 @@
     <title>Zombie Defense - Multijugador</title>
 
     <style>
-        /* ... (CSS Mismo que el original) ... */
+        /* Estilos básicos para el juego (CSS Esencial) */
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+            color: #fff;
+            height: 100%;
+            width: 100%;
+            user-select: none;
+            touch-action: none; /* Mejorar manejo táctil */
+        }
+
+        /* Canvas de juego principal */
+        #gameCanvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+        }
+
+        /* Menús */
+        .menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            background-color: rgba(0, 0, 0, 0.9);
+            border: 3px solid #f00;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            max-width: 90%;
+        }
+
+        .menu h1 {
+            color: #0f0;
+            margin-bottom: 25px;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        .menu h2 {
+            color: #ff0000;
+            margin-bottom: 15px;
+        }
+
+        .menu label {
+            display: block;
+            margin-top: 15px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .menu input[type="text"], .menu input[type="range"] {
+            width: 90%;
+            padding: 10px;
+            margin-top: 5px;
+            margin-bottom: 20px;
+            border: 1px solid #555;
+            background-color: #333;
+            color: #fff;
+            border-radius: 5px;
+        }
+
+        .menu button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin-top: 10px;
+            background-color: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        .menu button:hover:not(:disabled) {
+            background-color: #cc0000;
+        }
+
+        .menu button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        
+        .menu ul {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0;
+            text-align: left;
+        }
+
+        .menu ul li {
+            padding: 5px 0;
+            border-bottom: 1px solid #444;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* HUD - Heads Up Display */
+        .hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50;
+            pointer-events: none; /* Para no interceptar clics sobre el canvas, excepto los joysticks */
+        }
+
+        .score-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 1.1em;
+        }
+
+        .wave-info {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ff0;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        /* Health Bar */
+        .health-bar {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 250px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 5px;
+            border-radius: 5px;
+        }
+
+        .health-meter {
+            height: 15px;
+            background-color: #555;
+            border: 1px solid #fff;
+            margin: 5px 0;
+            overflow: hidden;
+            border-radius: 3px;
+        }
+
+        #healthFill {
+            height: 100%;
+            background-color: #0f0;
+            transition: width 0.3s;
+        }
+        
+        #healthText {
+            font-size: 0.9em;
+            text-align: right;
+        }
+
+        /* Minimapa */
+        #minimap {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            border: 2px solid #0f0;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 5px;
+        }
+
+        /* Joysticks */
+        .joystick-container {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            width: 100%;
+            height: 150px; /* Altura para contener ambos joysticks */
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            pointer-events: auto; /* IMPORTANTE: Habilita interacción */
+        }
+
+        .joystick-base {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.2);
+            position: relative;
+            margin: 0 20px 0 20px;
+        }
+
+        .joystick-knob {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.7);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        /* Ajuste de posición para joysticks */
+        #moveJoystick {
+            margin-left: 20px;
+        }
+        
+        #shootJoystick {
+            margin-right: 20px;
+        }
+
     </style>
 </head>
 <body>
 
+
     <canvas id="gameCanvas"></canvas>
+
 
     <div class="menu" id="mainMenu">
         <h1>🧟 ZOMBIE DEFENSE</h1>
-
         <button id="btnStartSinglePlayer">JUGAR (1 JUGADOR)</button>
         <button id="btnShowMultiplayer">MULTIJUGADOR</button>
         <button id="btnShowSettings">CONFIGURACIÓN</button>
-
         <div style="margin-top: 20px; font-size: 12px; text-align: center; color: #888;">
             v1.0 - Servidor Autoritativo
         </div>
     </div>
+
+    <div class="menu hidden" id="settingsMenu">
+        <h1>⚙️ CONFIGURACIÓN</h1>
+        <label>Dificultad: <span class="value-display" id="difficultyValue">Normal</span></label>
+        <input type="range" id="difficulty" min="1" max="3" value="2" oninput="updateSettings()"> 
+
+        <label>Tamaño Mapa: <span class="value-display" id="mapSizeValue">Mediano</span></label>
+        <input type="range" id="mapSize" min="30" max="70" value="50" step="10" oninput="updateSettings()">
+
+        <label>Velocidad Jugador: <span class="value-display" id="playerSpeedValue">3</span></label>
+        <input type="range" id="playerSpeed" min="2" max="5" value="3" step="0.5" oninput="updateSettings()">
+
+        <label>Cadencia Disparo: <span class="value-display" id="fireRateValue">Normal</span></label>
+        <input type="range" id="fireRate" min="5" max="20" value="10" oninput="updateSettings()">
+
+        <button id="btnHideSettings">VOLVER</button>
+    </div>
+
+    <div class="menu hidden game-over" id="gameOverMenu">
+        <h2>💀 GAME OVER</h2>
+        <div class="final-score">
+            Puntuación Final: <span id="finalScore">0</span>
+        </div>
+        <div>Oleada Alcanzada: <span id="finalWave">0</span></div>
+        <div>Zombies Eliminados: <span id="finalKills">0</span></div>
+        <button id="btnRestartGame">REINTENTAR</button>
+        <button id="btnBackToMenu">MENÚ PRINCIPAL</button>
+    </div>
+
+
+    <div class="menu hidden" id="multiplayerMenu">
+        <h1>⚔️ MULTIJUGADOR</h1>
+        <label>Nombre de Jugador:</label>
+        <input type="text" id="playerNameInput" placeholder="Tu Nombre">
+        <button id="btnCreateLobby">CREAR PARTIDA</button>
+        <button id="btnFindLobby">BUSCAR PARTIDA</button>
+        <button id="btnShowMainMenu">VOLVER</button>
+    </div>
+
+    <div class="menu hidden" id="lobbiesListMenu">
+        <h1>🔍 SALAS DISPONIBLES</h1>
+        <div id="lobbiesContainer">
+            <p>Cargando salas...</p>
+        </div>
+        <button id="btnShowMultiplayerFromLobbies">VOLVER</button>
+    </div>
+
     <div class="menu hidden" id="lobbyWaitMenu">
         <h1>🚪 SALA DE ESPERA</h1>
         <p>ID de Partida: <strong id="lobbyIdDisplay" style="color: #00ff00; font-size: 20px;">...</strong></p>
@@ -33,7 +305,9 @@
         <button id="btnExitLobby">SALIR DEL LOBBY</button>
     </div>
 
+
     <div class="hud hidden">
+        
         <div class="score-info">
             <div>SCORE: <span id="score">0</span></div>
             <div>KILLS: <span id="kills">0</span></div>
@@ -67,6 +341,7 @@
     <script type="module" src="js/utils.js"></script>
     <script type="module" src="js/entities.js"></script>
     <script type="module" src="js/game.js"></script>
+
 
 </body>
 </html>

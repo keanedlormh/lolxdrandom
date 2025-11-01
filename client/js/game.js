@@ -46,7 +46,7 @@ const clientState = {
     // Datos estáticos de la partida
     mapData: {
         map: [], // Array de la cuadrícula
-        cellSize: 40,
+        cellSize: 40, // <-- IMPORTANTE: Valor usado para dibujar el mapa
         mapWorldSize: 0
     },
 
@@ -184,23 +184,12 @@ canvas.addEventListener('mousemove', (e) => {
     clientState.input.shootY = shootY;
 });
 
-// Evento de disparo con el mouse (simulando manteniéndolo presionado)
 canvas.addEventListener('mousedown', (e) => {
     if (clientState.currentState !== 'playing') return;
-    // Esto asegura que el disparo ocurra incluso si el mouse no se mueve
-    // Usamos el 'mousemove' para la dirección y 'mousedown' como trigger si es necesario
-    // Pero como estamos enviando la dirección del mouse en 'mousemove', no es estrictamente necesario 
-    // otro evento aquí para simular 'disparo continuo'.
 });
 
 canvas.addEventListener('mouseup', (e) => {
     if (clientState.currentState !== 'playing') return;
-    // Detener el disparo (configurando el vector de disparo a 0)
-    // Esto es un poco rudimentario; un sistema real usaría un botón de "disparo"
-    // Pero si usamos el mouse para apuntar, el disparo debe ser continuo al apuntar.
-    // Para simplificar, asumiremos que el jugador dispara cuando apunta (input != 0).
-    // Si queremos que solo dispare al hacer clic, necesitamos un 'isShooting: true' en el input.
-    // Dejaremos la lógica simple del servidor (dispara si shootX/Y != 0).
 });
 
 
@@ -214,11 +203,6 @@ function gameLoopRender(timestamp) {
         const deltaTime = timestamp - lastRenderTime;
 
         // Calcular el factor de interpolación
-        // `interpolationFactor` será un valor entre 0 y 1, que indica cuánto
-        // avanzar entre el último snapshot y el actual.
-        // Se asume que el servidor envía 30 snapshots/seg (TICK_RATE).
-        // El tiempo transcurrido desde el último snapshot es aproximadamente 
-        // 1/SERVER_TICK_RATE (33.33ms).
         const serverSnapshotTime = 1000 / SERVER_TICK_RATE;
         const interpolationFactor = Math.min(1, deltaTime / serverSnapshotTime);
         
@@ -313,7 +297,7 @@ function drawGame(deltaTime) {
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
     if (!me) return; 
 
-    const viewportW = canvas.width / SCALE;
+    const viewportW = canvas.width / SCALE; // Usar el tamaño real del canvas, no el tamaño lógico del mapa
     const viewportH = canvas.height / SCALE;
     
     // La cámara se centra en el jugador
@@ -322,11 +306,17 @@ function drawGame(deltaTime) {
 
     // Aplicar límites de la cámara al borde del mapa
     const mapSize = clientState.mapData.mapWorldSize;
-    if (cameraX < 0) cameraX = 0;
-    if (cameraY < 0) cameraY = 0;
-    if (cameraX + viewportW > mapSize) cameraX = mapSize - viewportW;
-    if (cameraY + viewportH > mapSize) cameraY = mapSize - viewportH;
-    
+    if (mapSize > 0) { // Asegurarse de que el mapa exista
+        if (cameraX < 0) cameraX = 0;
+        if (cameraY < 0) cameraY = 0;
+        if (cameraX + viewportW > mapSize) cameraX = mapSize - viewportW;
+        if (cameraY + viewportH > mapSize) cameraY = mapSize - viewportH;
+        
+        // Si el viewport es más grande que el mapa (ej. mapa pequeño), centrar
+        if (viewportW > mapSize) cameraX = -(viewportW - mapSize) / 2; 
+        if (viewportH > mapSize) cameraY = -(viewportH - mapSize) / 2;
+    }
+
     
     // 2. Limpiar Canvas y Transformar
     ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); // Resetear transformación
@@ -342,7 +332,7 @@ function drawGame(deltaTime) {
     
     // 4. DIBUJAR ENTIDADES INTERPOLADAS
     
-    // Balas (no interpoladas ya que se mueven rápido y el servidor es autoritativo)
+    // Balas
     clientState.serverSnapshot.bullets.forEach(b => {
         ctx.fillStyle = 'yellow';
         ctx.beginPath();
@@ -358,7 +348,8 @@ function drawGame(deltaTime) {
         ctx.fill();
         ctx.fillStyle = 'black';
         ctx.font = '10px Arial';
-        ctx.fillText('Z', z.x - 4, z.y + 4);
+        ctx.textAlign = 'center';
+        ctx.fillText('Z', z.x, z.y + 4);
     });
 
     // Jugadores
@@ -377,6 +368,13 @@ function drawGame(deltaTime) {
         ctx.fillRect(p.x - barWidth / 2, p.y - 25, barWidth, barHeight);
         ctx.fillStyle = healthPercent > 0.3 ? 'lime' : 'orange';
         ctx.fillRect(p.x - barWidth / 2, p.y - 25, barWidth * healthPercent, barHeight);
+        
+        // Nombre
+        const playerName = clientState.playersInLobby.find(lp => lp.id === p.id)?.name || p.id;
+        ctx.fillStyle = isMe ? 'cyan' : 'white';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(playerName, p.x, p.y - 35);
     });
 
     ctx.restore(); // Restaurar el contexto (quitar la traslación de la cámara)
@@ -390,7 +388,7 @@ function drawGame(deltaTime) {
  */
 function drawMap() {
     const { map, cellSize } = clientState.mapData;
-    if (map.length === 0) return;
+    if (map.length === 0) return; // <-- Asegura que no intentamos dibujar un mapa vacío
 
     for (let y = 0; y < map.length; y++) {
         for (let x = 0; x < map[y].length; x++) {
@@ -428,7 +426,8 @@ function drawHUD(player) {
     ctx.font = '18px Arial';
     
     // Información de la izquierda
-    ctx.fillText(`Vida: ${player ? player.health : 0} | Kills: ${player ? player.kills : 0}`, 10, 25);
+    ctx.textAlign = 'left';
+    ctx.fillText(`Vida: ${player && player.health > 0 ? player.health : 0} | Kills: ${player ? player.kills : 0}`, 10, 25);
     
     // Información central
     ctx.textAlign = 'center';
@@ -437,10 +436,14 @@ function drawHUD(player) {
     // Lista de jugadores (Derecha)
     ctx.textAlign = 'right';
     let yOffset = 25;
-    serverSnapshot.players.forEach(p => {
-        const playerName = clientState.playersInLobby.find(lp => lp.id === p.id)?.name || p.id;
+    // Usamos el listado del lobby para obtener los nombres
+    const playerList = clientState.playersInLobby || [];
+    playerList.forEach(p => {
+        const entity = serverSnapshot.players.find(ep => ep.id === p.id);
+        const health = entity ? entity.health : (p.isHost ? 'Espera' : 'Espera');
+
         ctx.fillStyle = p.id === clientState.me.id ? 'cyan' : 'white';
-        ctx.fillText(`${playerName}: ${p.health}`, canvas.width - 10, yOffset);
+        ctx.fillText(`${p.name}: ${health}`, canvas.width - 10, yOffset);
         yOffset += 20;
     });
 }
@@ -452,12 +455,15 @@ function drawHUD(player) {
  * Redimensiona el canvas para llenar la ventana.
  */
 function resizeCanvas() {
+    // CORRECCIÓN: Usar window.innerWidth/Height para el ajuste completo de la pantalla
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    // Se podría aplicar la escala aquí si fuera necesario
+    // Reaplicar la transformación (aunque es 1.0, es una buena práctica)
+    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
 }
 
 window.addEventListener('resize', resizeCanvas);
+// Llamar a resize al inicio
 resizeCanvas();
 
 
@@ -522,7 +528,7 @@ function updateLobbyDisplay() {
 
 socket.on('connect', () => {
     clientState.me.id = socket.id;
-    console.log(`Conectado al servidor con ID: ${socket.id}`);
+    console.log(`[CLIENTE] Conectado al servidor con ID: ${socket.id}`);
 });
 
 /**
@@ -571,11 +577,16 @@ socket.on('gameStarted', (data) => {
     clientState.currentState = 'playing';
     clientState.mapData.map = data.mapData;
     clientState.mapData.mapWorldSize = data.mapWorldSize;
+    // NOTE: clientState.mapData.cellSize = 40; ya está en la definición global.
+
     // Limpiar entidades interpoladas para el nuevo juego
     clientState.interpolatedEntities.players.clear();
     clientState.interpolatedEntities.zombies.clear();
     
     updateUI();
+    // Asegurar que el canvas tiene el tamaño correcto al inicio del juego
+    resizeCanvas(); // <-- CORRECCIÓN
+
     // Reiniciar el loop de renderizado (si no está ya corriendo)
     if (!animationFrameId) {
         animationFrameId = requestAnimationFrame(gameLoopRender);
@@ -645,7 +656,9 @@ document.getElementById('startButton').addEventListener('click', () => {
 document.getElementById('backToMenuButton').addEventListener('click', () => {
     // Lógica para abandonar la sala (si está en lobby) o volver al menú
     if (clientState.roomId) {
-        // Podríamos enviar un evento 'leaveGame' si fuera necesario
+        // Enviar un mensaje simple al servidor para informar que el jugador se va,
+        // aunque el servidor lo manejará por desconexión de socket si cerramos la pestaña.
+        // Aquí simplemente volvemos al menú localmente.
     }
     clientState.currentState = 'menu';
     updateUI();

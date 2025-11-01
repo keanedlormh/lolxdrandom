@@ -19,7 +19,7 @@ let gameState = 'menu'; // 'menu', 'settings', 'multiplayerMenu', 'lobbiesList',
 
 // Variables de red
 let socket;
-const SERVER_URL = window.location.origin; // O puedes usar 'http://localhost:3000' si es necesario
+const SERVER_URL = window.location.origin;
 let myPlayerId = null;
 let myPlayerName = '';
 
@@ -64,7 +64,7 @@ const hudElements = {
  */
 function showMenu(menuName) {
     gameState = menuName;
-    
+
     // Ocultar todos los menús
     Object.values(menus).forEach(menu => menu.classList.add('hidden'));
 
@@ -82,43 +82,74 @@ function showMenu(menuName) {
     document.querySelector('.health-bar').classList.toggle('hidden', !isPlaying);
 }
 
-// Funciones de navegación (llamadas desde index.html)
-window.showMainMenu = () => showMenu('menu');
-window.showSettings = () => showMenu('settings');
-window.hideSettings = () => showMenu('menu');
-window.showMultiplayerMenu = () => {
-    myPlayerName = document.getElementById('playerNameInput').value || 'Anónimo';
-    showMenu('multiplayerMenu');
-};
+// --- FUNCIONES DE NAVEGACIÓN Y ACCIÓN ---
 
-// --- LÓGICA DE JUEGO SINGLEPLAYER (Temporal/Fallback) ---
-
-window.startGame = () => {
-    // Si queremos mantener la opción singleplayer, esta función ejecuta el gameLoop local.
-    // Por ahora, solo se usa el multijugador.
+function startGame() {
     alert('El modo Singleplayer ha sido reemplazado por la arquitectura multijugador. Por favor, use "MULTIJUGADOR".');
     showMenu('menu');
-};
-window.restartGame = () => showMenu('menu'); // Simplificación
-window.backToMenu = () => showMenu('menu');  // Simplificación
+}
+
+function backToMenu() {
+    showMenu('menu');
+}
+
+function restartGame() {
+    showMenu('menu');
+}
+
+function showMainMenu() { 
+    showMenu('menu');
+}
+
+function showSettings() { 
+    showMenu('settings');
+}
+
+function hideSettings() { 
+    showMenu('menu');
+}
+
+function showMultiplayerMenu() {
+    // Al pasar a este menú, capturamos el nombre
+    myPlayerName = document.getElementById('playerNameInput').value || 'Anónimo';
+    showMenu('multiplayerMenu');
+}
+
+// --- LÓGICA DE MULTIJUGADOR ---
+
+function createNewLobby() {
+    setupSocketConnection();
+    socket.emit('createGame', myPlayerName);
+}
+
+function requestLobbiesList() {
+    setupSocketConnection();
+    socket.emit('getLobbies');
+    // Mostrar pantalla de carga
+    const container = document.getElementById('lobbiesContainer');
+    container.innerHTML = '<p>Buscando salas...</p>';
+}
+
+function requestStartGame() {
+    const roomId = document.getElementById('lobbyIdDisplay').textContent;
+    socket.emit('startGame', roomId);
+}
+
 
 // --- CONEXIÓN DE RED SOCKET.IO ---
 
 function setupSocketConnection() {
-    if (socket) return; // Ya conectado
-    
-    // Conectar al servidor Node.js
+    if (socket) return; 
+
     socket = io(SERVER_URL);
     
     socket.on('connect', () => {
         myPlayerId = socket.id;
         console.log(`[CLIENT] Conectado al servidor: ${myPlayerId}`);
-        // Si el jugador estaba en un menú de espera, notificar al servidor que se re-conectó
     });
 
     socket.on('disconnect', () => {
         console.warn(`[CLIENT] Desconectado del servidor.`);
-        // Si estábamos jugando, mostrar mensaje de error
         if (gameState === 'playing' || gameState === 'lobby') {
              alert('¡Desconexión! Volviendo al menú principal.');
              showMenu('menu');
@@ -130,17 +161,16 @@ function setupSocketConnection() {
     
     socket.on('gameCreated', (game) => {
         document.getElementById('lobbyIdDisplay').textContent = game.id;
-        document.getElementById('startMultiplayerButton').classList.remove('hidden'); // Host ve el botón
+        document.getElementById('startMultiplayerButton').classList.remove('hidden'); 
         updateLobbyList(game);
-        showMenu('lobby');
+        showMenu('lobbyWaitMenu'); // Usar el nombre del objeto del menú
     });
 
     socket.on('joinSuccess', (game) => {
         document.getElementById('lobbyIdDisplay').textContent = game.id;
-        // Solo el host tiene el botón de inicio
         document.getElementById('startMultiplayerButton').classList.add('hidden'); 
         updateLobbyList(game);
-        showMenu('lobby');
+        showMenu('lobbyWaitMenu'); // Usar el nombre del objeto del menú
     });
     
     socket.on('joinFailed', (message) => {
@@ -154,34 +184,26 @@ function setupSocketConnection() {
 
     socket.on('lobbiesList', (lobbies) => {
         displayLobbiesList(lobbies);
-        showMenu('lobbiesList');
+        showMenu('lobbiesListMenu'); // Usar el nombre del objeto del menú
     });
 
-    // --- EVENTOS DE INICIO Y ESTADO DE JUEGO ---
+    // --- EVENTOS DE JUEGO ---
     
     socket.on('gameStarted', (data) => {
         console.log('[CLIENT] Partida iniciada, recibiendo mapa...');
-        // Inicializar el mapa del cliente con los datos del servidor
         gameMap = new MapGenerator(data.mapData);
         
-        // Asegurar que los joysticks están inicializados y visibles
         if (!moveJoystick) {
             moveJoystick = new VirtualJoystick('moveJoystick', 'moveKnob');
             shootJoystick = new VirtualJoystick('shootJoystick', 'shootKnob');
         }
 
-        showMenu('playing'); // Cambiar a estado de juego
-        gameLoopMultiplayer(); // Iniciar el bucle de renderizado
+        showMenu('playing'); 
+        gameLoopMultiplayer();
     });
     
-    /**
-     * @event gameState
-     * Recibe el snapshot de estado del servidor 30 veces por segundo.
-     */
     socket.on('gameState', (snapshot) => {
         serverState = snapshot;
-        
-        // Actualizar el estado local del jugador a partir del snapshot
         const myData = serverState.players.find(p => p.id === myPlayerId);
         if (myData) {
             myLocalPlayer.health = myData.health;
@@ -199,13 +221,11 @@ function setupSocketConnection() {
     });
 }
 
-/**
- * Actualiza la lista de jugadores en el menú de Lobby.
- */
 function updateLobbyList(game) {
+    // ... (Lógica idéntica a la original) ...
     const list = document.getElementById('lobbyPlayersList');
     list.innerHTML = '';
-    
+
     game.players.forEach(p => {
         const li = document.createElement('li');
         const status = p.id === game.hostId ? '👑 HOST' : '🤝 Jugador';
@@ -213,7 +233,7 @@ function updateLobbyList(game) {
         li.style.color = p.id === myPlayerId ? '#00ff00' : '#fff';
         list.appendChild(li);
     });
-    
+
     // Mostrar/Ocultar botón de inicio si somos host
     const startBtn = document.getElementById('startMultiplayerButton');
     if (socket && socket.id === game.hostId) {
@@ -225,51 +245,26 @@ function updateLobbyList(game) {
     }
 }
 
-/**
- * Rellena la lista de lobbies disponibles para unirse.
- */
 function displayLobbiesList(lobbies) {
+    // ... (Lógica idéntica a la original) ...
     const container = document.getElementById('lobbiesContainer');
     container.innerHTML = '';
-    
+
     if (lobbies.length === 0) {
         container.innerHTML = '<p style="color: #ff3333;">No hay salas disponibles.</p>';
         return;
     }
-    
+
     lobbies.forEach(lobby => {
         const button = document.createElement('button');
         button.textContent = `Sala: ${lobby.id} | Host: ${lobby.hostName} (${lobby.playerCount}/4)`;
-        button.onclick = () => {
+        // Conexión del evento click dentro de JS para evitar problemas de módulos
+        button.addEventListener('click', () => { 
             socket.emit('joinGame', lobby.id, myPlayerName);
-        };
+        });
         container.appendChild(button);
     });
 }
-
-
-// --- FUNCIONES DE ACCIÓN DE MULTIJUGADOR (Llamadas desde index.html) ---
-
-window.createNewLobby = () => {
-    setupSocketConnection();
-    // Emitir el evento al servidor para crear la sala
-    socket.emit('createGame', myPlayerName);
-};
-
-window.showLobbiesList = () => {
-    setupSocketConnection();
-    // Emitir el evento para pedir la lista de salas
-    socket.emit('getLobbies');
-    // Mostrar pantalla de carga
-    const container = document.getElementById('lobbiesContainer');
-    container.innerHTML = '<p>Buscando salas...</p>';
-};
-
-window.requestStartGame = () => {
-    const roomId = document.getElementById('lobbyIdDisplay').textContent;
-    // El servidor validará si somos el host y si hay suficientes jugadores
-    socket.emit('startGame', roomId);
-};
 
 
 // --- BUCLE DE RENDERIZADO (El "Game Loop" del Cliente) ---
@@ -281,10 +276,10 @@ window.requestStartGame = () => {
 function gameLoopMultiplayer() {
     if (gameState !== 'playing') return;
 
-    // 1. ENVIAR INPUT DEL JUGADOR (Cada frame de renderizado)
+    // 1. ENVIAR INPUT DEL JUGADOR
     const moveVec = moveJoystick.getVector();
     const shootVec = shootJoystick.getVector();
-    
+
     // Evita enviar datos si no hay movimiento o disparo
     if (moveVec.x !== 0 || moveVec.y !== 0 || shootVec.x !== 0 || shootVec.y !== 0) {
         socket.emit('playerInput', { 
@@ -297,11 +292,10 @@ function gameLoopMultiplayer() {
 
     // --- 2. PREPARAR CÁMARA Y CANVAS ---
     
-    // Limpiar canvas principal
+    // ... (Lógica de cámara y dibujo idéntica a la original) ...
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Encontrar nuestra posición (centrar cámara)
     const myX = myLocalPlayer.x;
     const myY = myLocalPlayer.y;
 
@@ -309,7 +303,7 @@ function gameLoopMultiplayer() {
     const offsetY = myY - canvas.height / 2;
 
     // --- 3. DIBUJAR ENTIDADES (basado en serverState) ---
-    
+
     // Dibujar mapa
     if (gameMap) {
         gameMap.draw(ctx, offsetX, offsetY);
@@ -321,7 +315,7 @@ function gameLoopMultiplayer() {
         const bullet = new Bullet(bData.id, bData.x, bData.y);
         bullet.draw(ctx, offsetX, offsetY);
     });
-    
+
     // Dibujar Zombies
     serverState.zombies.forEach(zData => {
         const zombie = new Zombie(zData.id, zData.x, zData.y);
@@ -331,26 +325,58 @@ function gameLoopMultiplayer() {
     // Dibujar Jugadores
     serverState.players.forEach(pData => {
         const isMe = pData.id === myPlayerId;
-        // NOTA: Se necesita un sistema para obtener el nombre del jugador
         const player = new Player(pData.id, pData.x, pData.y, isMe, 'Jugador ' + pData.id.substring(0, 4)); 
         player.health = pData.health;
         player.draw(ctx, offsetX, offsetY);
     });
 
     // --- 4. ACTUALIZAR HUD ---
-    
+
     hudElements.score.textContent = serverState.score;
     hudElements.wave.textContent = serverState.wave;
     hudElements.kills.textContent = myLocalPlayer.kills;
-    
+
     // Barra de salud
     const health = myLocalPlayer.health;
     const healthPercent = Math.max(0, health) / 100;
     hudElements.healthFill.style.width = `${healthPercent * 100}%`;
     hudElements.healthText.textContent = `${Math.max(0, health)} / 100`;
-    
+
     // Continuar el render loop
     requestAnimationFrame(gameLoopMultiplayer);
+}
+
+// --- CONFIGURACIÓN DE LISTENERS (SOLUCIÓN AL PROBLEMA DE BOTONES) ---
+
+/**
+ * Asigna los event listeners a todos los botones del menú utilizando sus IDs.
+ * Esto elimina la necesidad de los problemáticos atributos onclick="" en el HTML.
+ */
+function setupUIListeners() {
+    // Menú Principal
+    document.getElementById('btnStartSinglePlayer').addEventListener('click', startGame);
+    document.getElementById('btnShowMultiplayer').addEventListener('click', showMultiplayerMenu);
+    document.getElementById('btnShowSettings').addEventListener('click', showSettings);
+
+    // Menú de Configuración
+    document.getElementById('btnHideSettings').addEventListener('click', hideSettings);
+    // document.getElementById('difficulty').addEventListener('input', updateSettings); // Asumiendo updateSettings existe
+
+    // Menú Game Over
+    document.getElementById('btnRestartGame').addEventListener('click', restartGame);
+    document.getElementById('btnBackToMenu').addEventListener('click', backToMenu);
+
+    // Menú Multijugador
+    document.getElementById('btnCreateLobby').addEventListener('click', createNewLobby);
+    document.getElementById('btnFindLobby').addEventListener('click', requestLobbiesList); // Cambié el nombre de la función para mayor claridad
+    document.getElementById('btnShowMainMenu').addEventListener('click', showMainMenu);
+
+    // Menú Lista de Lobbies
+    document.getElementById('btnShowMultiplayerFromLobbies').addEventListener('click', showMultiplayerMenu);
+
+    // Menú de Espera (Lobby)
+    document.getElementById('startMultiplayerButton').addEventListener('click', requestStartGame);
+    document.getElementById('btnExitLobby').addEventListener('click', showMultiplayerMenu); // Simplemente vuelve al menú multijugador
 }
 
 // --- INICIALIZACIÓN ---
@@ -366,9 +392,12 @@ function initialize() {
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
-    
-    // Inicializar la conexión y mostrar el menú principal
+
+    // 1. Conectar la red
     setupSocketConnection();
+    // 2. Conectar los botones
+    setupUIListeners(); 
+    // 3. Mostrar la interfaz inicial
     showMenu('menu');
 }
 

@@ -10,7 +10,7 @@ const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
 // Importar la clase de lógica del juego (debe existir en el directorio server/)
-const GameLogic = require('./server/gameLogic'); 
+const GameLogic = require('server/gameLogic'); 
 
 const app = express();
 const server = http.createServer(app);

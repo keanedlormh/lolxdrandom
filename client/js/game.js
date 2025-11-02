@@ -2,6 +2,7 @@
  * client/js/game.js
  * Lógica principal del lado del cliente. 
  * Se encarga de la comunicación con Socket.IO, el renderizado y la gestión de inputs.
+ * * IMPLEMENTACIÓN: Joysticks Táctiles para móvil.
  */
 
 
@@ -14,8 +15,26 @@ const ctx = canvas.getContext('2d');
 
 
 // Las entidades asumen que window.SCALE existe
-const SCALE = window.SCALE; 
+const SCALE = 1.0; 
+window.SCALE = SCALE;
 const SERVER_TICK_RATE = 30; // 30 FPS del servidor
+
+
+// --- CONFIGURACIÓN DE JOYSTICK TÁCTIL ---
+const JOYSTICK_RADIUS = 70; // Radio del joystick de fondo
+const KNOB_RADIUS = 30;   // Radio del botón de control
+const JOYSTICK_AREA_RATIO = 0.4; // 40% de la pantalla para joysticks
+
+
+// Estado para el control táctil
+const touchState = {
+    // Si la pantalla es táctil, deshabilitamos teclado/ratón para movimiento y puntería
+    isTouchDevice: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+
+    // Estado de los joysticks
+    move: { active: false, id: null, centerX: 0, centerY: 0, currentX: 0, currentY: 0 },
+    aim: { active: false, id: null, centerX: 0, centerY: 0, currentX: 0, currentY: 0 }
+};
 
 
 // Estado del juego en el cliente
@@ -45,7 +64,7 @@ const clientState = {
     // Input
     input: {
         moveX: 0, moveY: 0, // Joystick de movimiento
-        shootX: 0, shootY: 0, // Dirección de disparo
+        shootX: 1, shootY: 0, // Dirección de disparo (por defecto a la derecha)
         isShooting: false // Nuevo: Bandera para disparo continuo
     }
 };
@@ -86,97 +105,234 @@ function sendInputToServer() {
 }
 
 
-// --- MOVIMIENTO (TECLADO) ---
-const moveKeys = {
-    'w': { dy: -1 }, 's': { dy: 1 },
-    'a': { dx: -1 }, 'd': { dx: 1 },
-};
-const keysPressed = new Set();
+// --- MOVIMIENTO Y PUNTERÍA (TECLADO/RATÓN - SOLO EN DESKTOP) ---
+
+if (!touchState.isTouchDevice) {
+    // Lógica de Teclado (WASD)
+    const moveKeys = {
+        'w': { dy: -1 }, 's': { dy: 1 },
+        'a': { dx: -1 }, 'd': { dx: 1 },
+    };
+    const keysPressed = new Set();
 
 
-document.addEventListener('keydown', (e) => {
-    if (clientState.currentState !== 'playing') return;
-    const key = e.key.toLowerCase();
-    if (moveKeys[key]) {
-        keysPressed.add(key);
-        updateMoveInput();
-        e.preventDefault();
-    }
-});
-
-
-document.addEventListener('keyup', (e) => {
-    if (clientState.currentState !== 'playing') return;
-    const key = e.key.toLowerCase();
-    if (moveKeys[key]) {
-        keysPressed.delete(key);
-        updateMoveInput();
-    }
-});
-
-
-function updateMoveInput() {
-    let moveX = 0;
-    let moveY = 0;
-    keysPressed.forEach(key => {
-        if (moveKeys[key].dx) moveX += moveKeys[key].dx;
-        if (moveKeys[key].dy) moveY += moveKeys[key].dy;
+    document.addEventListener('keydown', (e) => {
+        if (clientState.currentState !== 'playing') return;
+        const key = e.key.toLowerCase();
+        if (moveKeys[key]) {
+            keysPressed.add(key);
+            updateMoveInput();
+            e.preventDefault();
+        }
     });
-    clientState.input.moveX = moveX;
-    clientState.input.moveY = moveY;
-}
 
 
-// --- PUNTERÍA Y DISPARO (MOUSE) ---
+    document.addEventListener('keyup', (e) => {
+        if (clientState.currentState !== 'playing') return;
+        const key = e.key.toLowerCase();
+        if (moveKeys[key]) {
+            keysPressed.delete(key);
+            updateMoveInput();
+        }
+    });
 
 
-// El jugador local necesita su posición para calcular el vector de disparo
-function calculateAimVector(e) {
-    if (clientState.currentState !== 'playing') return;
+    function updateMoveInput() {
+        let moveX = 0;
+        let moveY = 0;
+        keysPressed.forEach(key => {
+            if (moveKeys[key].dx) moveX += moveKeys[key].dx;
+            if (moveKeys[key].dy) moveY += moveKeys[key].dy;
+        });
+        clientState.input.moveX = moveX;
+        clientState.input.moveY = moveY;
+    }
 
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left) / SCALE; 
-    const mouseY = (e.clientY - rect.top) / SCALE;
 
-    // Obtener la entidad interpolada del jugador local
-    const me = clientState.interpolatedEntities.players.get(clientState.me.id);
-    if (!me) return;
-
-    // Centro del viewport (pantalla)
-    const playerScreenX = canvas.width / (2 * SCALE);
-    const playerScreenY = canvas.height / (2 * SCALE);
-
-    // Vector de disparo
-    let shootX = mouseX - playerScreenX;
-    let shootY = mouseY - playerScreenY;
+    // Lógica de Ratón (Puntería y Disparo)
     
-    // Normalizar la dirección
-    const length = Math.sqrt(shootX ** 2 + shootY ** 2);
-    if (length > 0.1) { // Solo actualiza si el mouse no está demasiado cerca del centro
-        clientState.input.shootX = shootX / length;
-        clientState.input.shootY = shootY / length;
+    // Calcula el vector de puntería basado en la posición del ratón
+    function calculateAimVector(e) {
+        if (clientState.currentState !== 'playing') return;
 
-        // Actualizar la entidad local para el dibujo inmediato de la línea de puntería
-        me.shootX = clientState.input.shootX;
-        me.shootY = clientState.input.shootY;
+        const rect = canvas.getBoundingClientRect();
+        // MouseX y MouseY ya son coordenadas del viewport ya que SCALE = 1
+        const mouseX = e.clientX - rect.left; 
+        const mouseY = e.clientY - rect.top;
+
+        // Centro del viewport (pantalla)
+        const playerScreenX = canvas.width / 2;
+        const playerScreenY = canvas.height / 2;
+
+        // Vector de disparo
+        let shootX = mouseX - playerScreenX;
+        let shootY = mouseY - playerScreenY;
+        
+        // Normalizar la dirección
+        const length = Math.sqrt(shootX ** 2 + shootY ** 2);
+        if (length > 0.1) { 
+            clientState.input.shootX = shootX / length;
+            clientState.input.shootY = shootY / length;
+
+            // Actualizar la entidad local para el dibujo inmediato de la línea de puntería
+            const me = clientState.interpolatedEntities.players.get(clientState.me.id);
+            if (me) {
+                me.shootX = clientState.input.shootX;
+                me.shootY = clientState.input.shootY;
+            }
+        }
     }
+
+    canvas.addEventListener('mousemove', calculateAimVector);
+
+    canvas.addEventListener('mousedown', (e) => {
+        if (clientState.currentState !== 'playing') return;
+        if (e.button === 0) { // Clic izquierdo
+            clientState.input.isShooting = true;
+        }
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+        if (clientState.currentState !== 'playing') return;
+        if (e.button === 0) { // Clic izquierdo
+            clientState.input.isShooting = false;
+        }
+    });
+
 }
 
-canvas.addEventListener('mousemove', calculateAimVector);
 
-canvas.addEventListener('mousedown', (e) => {
-    if (clientState.currentState !== 'playing') return;
-    if (e.button === 0) { // Clic izquierdo
-        clientState.input.isShooting = true;
-    }
-});
+// --- LÓGICA TÁCTIL (JOYCSTICS) ---
 
-canvas.addEventListener('mouseup', (e) => {
-    if (clientState.currentState !== 'playing') return;
-    if (e.button === 0) { // Clic izquierdo
-        clientState.input.isShooting = false;
-    }
-});
+if (touchState.isTouchDevice) {
+
+    // Función para manejar el inicio de un toque (toca en la pantalla)
+    canvas.addEventListener('touchstart', (e) => {
+        if (clientState.currentState !== 'playing') return;
+        e.preventDefault(); // Prevenir el scroll y el zoom
+
+        Array.from(e.changedTouches).forEach(touch => {
+            const screenX = touch.clientX;
+            const screenY = touch.clientY;
+            
+            // Determinar si es un joystick de movimiento (izquierda) o puntería (derecha)
+            const isLeftHalf = screenX < canvas.width * 0.5;
+
+            // Intentar activar el joystick
+            if (isLeftHalf && !touchState.move.active) {
+                const move = touchState.move;
+                move.active = true;
+                move.id = touch.identifier;
+                // Posicionar el centro del joystick en la posición del primer toque
+                move.centerX = screenX;
+                move.centerY = screenY;
+                move.currentX = screenX;
+                move.currentY = screenY;
+                console.log('Joystick MOVIMIENTO activado');
+            } else if (!isLeftHalf && !touchState.aim.active) {
+                const aim = touchState.aim;
+                aim.active = true;
+                aim.id = touch.identifier;
+                // Posicionar el centro del joystick en la posición del primer toque
+                aim.centerX = screenX;
+                aim.centerY = screenY;
+                aim.currentX = screenX;
+                aim.currentY = screenY;
+                clientState.input.isShooting = true; // Empezar a disparar al tocar el joystick de puntería
+                console.log('Joystick PUNTERÍA activado');
+            }
+        });
+    });
+
+    // Función para manejar el movimiento de un toque (desliza el dedo)
+    canvas.addEventListener('touchmove', (e) => {
+        if (clientState.currentState !== 'playing') return;
+        e.preventDefault();
+
+        Array.from(e.changedTouches).forEach(touch => {
+            const screenX = touch.clientX;
+            const screenY = touch.clientY;
+
+            // 1. Joystick de Movimiento (Izquierda)
+            if (touchState.move.active && touch.identifier === touchState.move.id) {
+                const move = touchState.move;
+                
+                let dx = screenX - move.centerX;
+                let dy = screenY - move.centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > JOYSTICK_RADIUS) {
+                    // Limitar el botón al radio del joystick
+                    dx *= JOYSTICK_RADIUS / distance;
+                    dy *= JOYSTICK_RADIUS / distance;
+                }
+                
+                // Actualizar posición del botón (knob)
+                move.currentX = move.centerX + dx;
+                move.currentY = move.centerY + dy;
+
+                // Actualizar input de movimiento
+                clientState.input.moveX = dx / JOYSTICK_RADIUS;
+                clientState.input.moveY = dy / JOYSTICK_RADIUS;
+            } 
+            
+            // 2. Joystick de Puntería (Derecha)
+            else if (touchState.aim.active && touch.identifier === touchState.aim.id) {
+                const aim = touchState.aim;
+
+                let dx = screenX - aim.centerX;
+                let dy = screenY - aim.centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > JOYSTICK_RADIUS) {
+                    // Limitar el botón al radio del joystick
+                    dx *= JOYSTICK_RADIUS / distance;
+                    dy *= JOYSTICK_RADIUS / distance;
+                }
+
+                // Actualizar posición del botón (knob)
+                aim.currentX = aim.centerX + dx;
+                aim.currentY = aim.centerY + dy;
+                
+                // Actualizar input de puntería (si el movimiento es significativo)
+                if (distance > KNOB_RADIUS / 2) { 
+                    clientState.input.shootX = dx / distance;
+                    clientState.input.shootY = dy / distance;
+                    
+                    // Actualizar la entidad local para el dibujo inmediato del puntero
+                    const me = clientState.interpolatedEntities.players.get(clientState.me.id);
+                    if (me) {
+                        me.shootX = clientState.input.shootX;
+                        me.shootY = clientState.input.shootY;
+                    }
+                }
+            }
+        });
+    });
+
+    // Función para manejar el fin de un toque (levanta el dedo)
+    canvas.addEventListener('touchend', (e) => {
+        if (clientState.currentState !== 'playing') return;
+        e.preventDefault();
+
+        Array.from(e.changedTouches).forEach(touch => {
+            // 1. Joystick de Movimiento
+            if (touchState.move.active && touch.identifier === touchState.move.id) {
+                touchState.move.active = false;
+                touchState.move.id = null;
+                clientState.input.moveX = 0;
+                clientState.input.moveY = 0; // Detener el movimiento
+            } 
+            
+            // 2. Joystick de Puntería
+            else if (touchState.aim.active && touch.identifier === touchState.aim.id) {
+                touchState.aim.active = false;
+                touchState.aim.id = null;
+                clientState.input.isShooting = false; // Detener el disparo
+            }
+        });
+    });
+}
 
 
 // --- GESTIÓN DE RENDERIZADO ---
@@ -187,7 +343,6 @@ canvas.addEventListener('mouseup', (e) => {
  */
 function gameLoopRender(timestamp) {
     if (clientState.currentState === 'playing') {
-        // Asumiendo que el servidor envía a 30 TPS (33.33ms)
         const serverSnapshotTime = 1000 / SERVER_TICK_RATE;
         const timeSinceLastSnapshot = timestamp - lastRenderTime;
 
@@ -215,7 +370,6 @@ function gameLoopRender(timestamp) {
 function interpolateEntities(factor) {
     const { serverSnapshot, interpolatedEntities } = clientState;
     
-    // Conjunto de IDs recibidos en el snapshot
     const serverPlayerIds = new Set();
     const serverZombieIds = new Set();
     
@@ -227,15 +381,12 @@ function interpolateEntities(factor) {
 
 
         if (!p_client) {
-            // Inicializar la instancia de la clase Player
             p_client = new Player(p_server.id, p_server.x, p_server.y, isMe, p_server.name);
-            // También inicializar su dirección de puntería
             p_client.shootX = p_server.shootX || 1;
             p_client.shootY = p_server.shootY || 0;
             interpolatedEntities.players.set(p_server.id, p_client);
         }
         
-        // Actualizar posiciones objetivo y propiedades
         p_client.prevX = p_client.x;
         p_client.prevY = p_client.y;
         p_client.targetX = p_server.x;
@@ -244,9 +395,8 @@ function interpolateEntities(factor) {
         p_client.health = p_server.health;
         p_client.kills = p_server.kills;
 
-        // Para el jugador local, usar el input local para el puntero (ya actualizado en mousemove)
-        // Para otros jugadores, usar la dirección del servidor
-        if (!isMe) {
+        // Si es el jugador local y estamos usando joystick, la dirección de puntería se actualiza localmente
+        if (!isMe || !touchState.isTouchDevice) {
             p_client.shootX = p_server.shootX;
             p_client.shootY = p_server.shootY;
         }
@@ -256,18 +406,16 @@ function interpolateEntities(factor) {
         p_client.y = lerp(p_client.prevY, p_client.targetY, factor);
     });
     
-    // --- Zombies ---
+    // --- Zombies y Limpieza ---
     serverSnapshot.zombies.forEach(z_server => {
         serverZombieIds.add(z_server.id);
         let z_client = interpolatedEntities.zombies.get(z_server.id);
-
 
         if (!z_client) {
             z_client = new Zombie(z_server.id, z_server.x, z_server.y, z_server.maxHealth);
             interpolatedEntities.zombies.set(z_server.id, z_client);
         }
         
-        // Actualizar posiciones objetivo y salud
         z_client.prevX = z_client.x;
         z_client.prevY = z_client.y;
         z_client.targetX = z_server.x;
@@ -275,13 +423,12 @@ function interpolateEntities(factor) {
         z_client.health = z_server.health;
         z_client.maxHealth = z_server.maxHealth;
         
-        // Aplicar Lerp
         z_client.x = lerp(z_client.prevX, z_client.targetX, factor);
         z_client.y = lerp(z_client.prevY, z_client.targetY, factor);
     });
 
 
-    // Limpiar entidades que ya no están en el snapshot del servidor (muertas o desconectadas)
+    // Limpiar entidades que ya no están en el snapshot del servidor 
     interpolatedEntities.players.forEach((_, id) => {
         if (!serverPlayerIds.has(id)) { interpolatedEntities.players.delete(id); }
     });
@@ -290,8 +437,6 @@ function interpolateEntities(factor) {
         if (!serverZombieIds.has(id)) { interpolatedEntities.zombies.delete(id); }
     });
 }
-
-
 
 
 /**
@@ -375,9 +520,52 @@ function drawGame(deltaTime) {
     
     // 5. DIBUJAR UI (HUD)
     drawHUD(me);
+
+    // 6. DIBUJAR JOYSTICKS (Si es dispositivo táctil)
+    if (touchState.isTouchDevice) {
+        drawJoysticks();
+    }
 }
 
 
+/**
+ * Dibuja los joysticks virtuales en la interfaz táctil.
+ */
+function drawJoysticks() {
+    // Dibujar Joystick de MOVIMIENTO (Izquierda)
+    if (touchState.move.active) {
+        const move = touchState.move;
+        
+        // Círculo de fondo (Área de joystick)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; // Semitransparente
+        ctx.beginPath();
+        ctx.arc(move.centerX, move.centerY, JOYSTICK_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Círculo del botón (Knob)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.beginPath();
+        ctx.arc(move.currentX, move.currentY, KNOB_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Dibujar Joystick de PUNTERÍA (Derecha)
+    if (touchState.aim.active) {
+        const aim = touchState.aim;
+
+        // Círculo de fondo (Área de joystick)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; // Semitransparente
+        ctx.beginPath();
+        ctx.arc(aim.centerX, aim.centerY, JOYSTICK_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Círculo del botón (Knob)
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.6)'; // Rojo para indicar disparo
+        ctx.beginPath();
+        ctx.arc(aim.currentX, aim.currentY, KNOB_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
 
 
 /**
@@ -407,6 +595,7 @@ function drawHUD(player) {
     ctx.textAlign = 'right';
     let xRight = canvas.width - 10;
     
+    // Buscar el nombre actual en el lobby (si está disponible)
     const myInfo = clientState.playersInLobby?.find(p => p.id === clientState.me.id);
     const myName = myInfo ? myInfo.name : 'Desconocido';
     
@@ -419,6 +608,7 @@ function drawHUD(player) {
 
 
 function resizeCanvas() {
+    // Canvas a pantalla completa
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); 
@@ -515,6 +705,8 @@ socket.on('joinSuccess', (game) => {
 
 socket.on('joinFailed', (message) => {
     console.error(`Error al unirse: ${message}`);
+    clientState.currentState = 'menu';
+    updateUI();
 });
 
 
@@ -531,10 +723,8 @@ socket.on('lobbyUpdate', (game) => {
 socket.on('gameStarted', (data) => {
     clientState.currentState = 'playing';
 
-    // Inicializar el MapRenderer con los datos del servidor
     clientState.mapRenderer = new MapRenderer(data.mapData, data.cellSize);
     
-    // Limpiar entidades interpoladas para el nuevo juego
     clientState.interpolatedEntities.players.clear();
     clientState.interpolatedEntities.zombies.clear();
     
@@ -579,7 +769,6 @@ socket.on('gameEnded', () => {
 
 socket.on('playerDisconnected', (playerId) => {
     console.log(`Jugador desconectado: ${playerId}`);
-    // Limpieza de entidad interpolada manejada en interpolateEntities
 });
 
 
@@ -613,7 +802,6 @@ document.getElementById('startButton').addEventListener('click', () => {
 
 
 document.getElementById('backToMenuButton').addEventListener('click', () => {
-    // Si estamos en un lobby, notificar al servidor que abandonamos la sala
     if (clientState.currentState === 'lobby' && clientState.roomId) {
         socket.emit('leaveRoom', clientState.roomId);
     }

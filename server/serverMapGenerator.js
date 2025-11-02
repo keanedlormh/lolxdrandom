@@ -4,6 +4,7 @@
  * y proporciona puntos de spawn para jugadores y enemigos.
  */
 
+
 class ServerMapGenerator {
     constructor(gridSize = 50, cellSize = 40) {
         this.gridSize = gridSize; // 50x50 celdas
@@ -12,59 +13,62 @@ class ServerMapGenerator {
         this.worldSize = this.gridSize * this.cellSize;
     }
 
+
     /**
      * Genera un array 2D simple para el mapa.
      * 0: Espacio Abierto, 1: Muro
      */
     generateMapArray() {
-        // Algoritmo de generación de mapa simple (solo un borde y un centro libre)
+        // Inicializa un mapa vacío (todo abierto)
         const map = Array(this.gridSize).fill(0).map(() => Array(this.gridSize).fill(0));
-        
+
+
         const center = Math.floor(this.gridSize / 2);
+        const borderThickness = 1;
 
         // 1. Muros perimetrales
         for (let i = 0; i < this.gridSize; i++) {
-            map[0][i] = 1;
-            map[this.gridSize - 1][i] = 1;
-            map[i][0] = 1;
-            map[i][this.gridSize - 1] = 1;
+            for (let j = 0; j < borderThickness; j++) {
+                map[j][i] = 1; // Borde superior
+                map[this.gridSize - 1 - j][i] = 1; // Borde inferior
+                map[i][j] = 1; // Borde izquierdo
+                map[i][this.gridSize - 1 - j] = 1; // Borde derecho
+            }
         }
 
-        // 2. Creación de una "sala" central libre (5x5)
-        this.createRoom(center - 2, center - 2, 5, 5, map);
+
+        // 2. Obstáculos centrales (Un laberinto simple)
+        const wallStart = center - 5;
+        const wallEnd = center + 5;
         
-        // 3. Añadir algunos obstáculos aleatorios (Stub)
-        // Por ejemplo, una pared en el medio
-        for (let i = center - 5; i < center + 5; i++) {
-             map[center][i] = 1;
+        // Muro horizontal en el centro
+        for (let i = wallStart; i < wallEnd; i++) {
+             map[center - 5][i] = 1;
+             map[center + 5][i] = 1;
         }
 
+        // Muro vertical en el centro (con un pasaje)
+        for (let i = center - 5; i < center + 5; i++) {
+             map[i][center - 5] = 1;
+             map[i][center + 5] = 1;
+        }
+
+        // Crear una abertura
+        map[center - 5][center] = 0;
+        map[center + 5][center] = 0;
+        map[center][center - 5] = 0;
+        map[center][center + 5] = 0;
+        
 
         return map;
     }
-    
-    /**
-     * Dibuja una región de espacio abierto (0) en el mapa.
-     * @param {number} startX - Coordenada X de inicio de la celda.
-     * @param {number} startY - Coordenada Y de inicio de la celda.
-     * @param {number} width - Ancho de la sala en celdas.
-     * @param {number} height - Alto de la sala en celdas.
-     * @param {Array<Array<number>>} map - El array del mapa.
-     */
-    createRoom(startX, startY, width, height, map) {
-        for (let y = startY; y < startY + height; y++) {
-            for (let x = startX; x < startX + width; x++) {
-                if (map[y] && map[y][x] !== undefined) {
-                    map[y][x] = 0;
-                }
-            }
-        }
-    }
+
 
     /**
      * Obtiene la coordenada del mundo para el punto de spawn inicial.
      */
     getSpawnPoint() {
+        // En este mapa, el centro está abierto, es un buen punto de spawn.
         const center = Math.floor(this.gridSize / 2);
         // Retorna el centro de la celda central
         return {
@@ -72,16 +76,22 @@ class ServerMapGenerator {
             y: center * this.cellSize + this.cellSize / 2
         };
     }
-    
+
+
     /**
      * Obtiene la coordenada del mundo de una celda abierta aleatoria (para spawns de enemigos).
      */
     getRandomOpenCellPosition() {
         let attempts = 0;
+        // Solo spawneamos en el 80% interior del mapa para evitar spawns muy cercanos a los bordes
+        const minCoord = Math.floor(this.gridSize * 0.1);
+        const maxCoord = Math.floor(this.gridSize * 0.9);
+
         while (attempts < 100) {
-            const x = Math.floor(Math.random() * this.gridSize);
-            const y = Math.floor(Math.random() * this.gridSize);
-            
+            const x = minCoord + Math.floor(Math.random() * (maxCoord - minCoord));
+            const y = minCoord + Math.floor(Math.random() * (maxCoord - minCoord));
+
+
             if (this.map[y][x] === 0) {
                  return {
                     x: x * this.cellSize + this.cellSize / 2,
@@ -90,10 +100,9 @@ class ServerMapGenerator {
             }
             attempts++;
         }
-        return this.getSpawnPoint(); // Fallback al punto de spawn si no se encuentra nada
+        return this.getSpawnPoint(); // Fallback
     }
-
-    // Aquí irían otros métodos: getTileAt, checkCollision, etc.
 }
+
 
 module.exports = ServerMapGenerator;

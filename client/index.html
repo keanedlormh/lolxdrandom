@@ -23,8 +23,9 @@
 
         #gameCanvas {
             display: block;
+            /* Border y background solo se dibujan si el mapa no ha cargado */
             border: 2px solid #555;
-            background-color: #1a1a1a; /* Fondo para evitar parpadeos si no se dibuja el mapa */
+            background-color: #1a1a1a; 
             cursor: crosshair; /* Indicador de juego */
         }
 
@@ -95,6 +96,7 @@
 
 
     <div id="gameScreen">
+        <!-- El canvas debe ser interactivo y a pantalla completa en la vista de juego -->
         <canvas id="gameCanvas"></canvas>
     </div>
 

@@ -20,20 +20,25 @@
             align-items: center;
         }
 
+
         #gameCanvas {
             display: block;
             border: 2px solid #555;
+            background-color: #1a1a1a; /* Fondo para evitar parpadeos si no se dibuja el mapa */
             cursor: crosshair; /* Indicador de juego */
         }
 
+
         .menu-container {
             position: absolute;
-            background-color: rgba(0, 0, 0, 0.85);
+            background-color: rgba(0, 0, 0, 0.95);
             padding: 30px;
             border-radius: 10px;
             text-align: center;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
             max-width: 400px;
+            width: 90%; /* Mejor para móvil */
+            z-index: 1000;
         }
         
         input, button {
@@ -43,7 +48,9 @@
             border: none;
             width: 100%;
             box-sizing: border-box;
+            font-weight: bold;
         }
+
 
         button {
             background-color: #4CAF50;
@@ -52,14 +59,24 @@
             transition: background-color 0.3s;
         }
 
+
         button:hover:not(:disabled) {
             background-color: #45a049;
         }
+
 
         button:disabled {
             background-color: #555;
             cursor: not-allowed;
         }
+
+        #joinGameButton {
+            background-color: #336699;
+        }
+        #joinGameButton:hover:not(:disabled) {
+            background-color: #2a527c;
+        }
+
 
         #lobbyPlayerList {
             list-style: none;
@@ -76,22 +93,28 @@
 </head>
 <body>
 
+
     <div id="gameScreen">
         <canvas id="gameCanvas"></canvas>
     </div>
+
 
     <div id="menuScreen" class="menu-container">
         <h2>Zombie Shooter</h2>
         
         <input type="text" id="playerNameInput" placeholder="Introduce tu nombre" maxlength="15" value="Player1">
 
+
         <button id="createGameButton">Crear Partida</button>
 
+
         <hr style="border-color: #555; margin: 15px 0;">
+
 
         <input type="text" id="roomIdInput" placeholder="ID de Sala (EJ: ABCD)" maxlength="4" style="text-transform: uppercase;">
         <button id="joinGameButton">Unirse a Partida</button>
     </div>
+
 
     <div id="lobbyScreen" class="menu-container" style="display: none;">
         <h2>Sala de Espera</h2>
@@ -101,7 +124,9 @@
         <ul id="lobbyPlayerList">
             </ul>
 
+
         <hr style="border-color: #555; margin: 15px 0;">
+
 
         <button id="startButton">Iniciar Partida</button>
         <button id="backToMenuButton" style="background-color: #993333;">Volver al Menú</button>
@@ -115,9 +140,13 @@
         <button onclick="window.location.reload()" style="background-color: #336699;">Jugar de Nuevo</button>
     </div>
 
+
     <script src="/socket.io/socket.io.js"></script> 
     
+    <script src="js/entities.js"></script>
     <script src="js/game.js"></script>
+
 
 </body>
 </html>
+

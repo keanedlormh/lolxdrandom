@@ -10,7 +10,7 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
-const GameLogic = require('./gameLogic'); // Corregida la ruta de importación
+const GameLogic = require('./gameLogic'); 
 
 
 const app = express();
@@ -20,10 +20,6 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 const SERVER_TICK_RATE = 30; // 30 ticks por segundo para la lógica de juego
-
-
-// Servir archivos estáticos desde el directorio 'client'
-app.use(express.static(path.join(__dirname, '../client'))); // Ruta corregida
 
 
 // Estructuras de datos para gestionar las partidas activas
@@ -91,12 +87,20 @@ function handleGameCleanup(roomId) {
         activeGames.delete(roomId);
         console.log(`[CLEANUP] Sala ${roomId} eliminada por vacía.`);
     } else {
-        // Asignar nuevo host si el anterior se fue
-        const currentHost = game.players.find(p => p.isHost);
-        if (!currentHost && game.players.length > 0) {
-            game.players.forEach(p => p.isHost = false); // Limpiar banderas
-            game.players[0].isHost = true; // Asignar nuevo host al primero en la lista
+        // 1. Verificar si hay un Host
+        let currentHost = game.players.find(p => p.isHost);
+
+        // 2. Si no hay host o el host que se fue era el único, asignar uno nuevo
+        if (!currentHost || !game.players.some(p => p.id === currentHost.id)) {
+            // Asegurar que solo el nuevo host tenga la bandera
+            game.players.forEach(p => p.isHost = false); 
+            
+            const newHost = game.players[0]; // El primero en la lista es el nuevo host
+            newHost.isHost = true;
+            
+            console.log(`[LOBBY] Nuevo Host asignado en sala ${roomId}: ${newHost.name} (${newHost.id})`);
         }
+        // Notificar a todos del cambio de host o lista de jugadores
         io.to(roomId).emit('lobbyUpdate', game.getLobbyData());
     }
 }
@@ -116,9 +120,8 @@ io.on('connection', (socket) => {
             roomId = generateRoomId();
         }
 
-        // Antes de crear, asegurarse de que no está en otra sala
         if (userToRoom.has(socket.id)) {
-             io.to(socket.id).emit('joinFailed', 'Ya estás en una sala. Por favor, recarga o abandona la sala actual.');
+             socket.emit('joinFailed', 'Ya estás en una sala. Por favor, recarga o abandona la sala actual.');
             return;
         }
 
@@ -129,7 +132,7 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         
         console.log(`[LOBBY] Partida creada: ${roomId} por ${playerName}`);
-        io.to(socket.id).emit('gameCreated', newGame.getLobbyData());
+        socket.emit('gameCreated', newGame.getLobbyData());
     });
 
 
@@ -138,12 +141,12 @@ io.on('connection', (socket) => {
         const game = activeGames.get(roomId);
 
         if (!game || game.status !== 'lobby') {
-            io.to(socket.id).emit('joinFailed', 'Sala no encontrada o la partida ya ha iniciado.');
+            socket.emit('joinFailed', 'Sala no encontrada o la partida ya ha iniciado.');
             return;
         }
 
         if (userToRoom.has(socket.id)) {
-            io.to(socket.id).emit('joinFailed', 'Ya estás en una sala.');
+            socket.emit('joinFailed', 'Ya estás en una sala.');
             return;
         }
 
@@ -154,7 +157,7 @@ io.on('connection', (socket) => {
 
         console.log(`[LOBBY] Jugador ${playerName} se unió a la sala ${roomId}`);
         
-        io.to(socket.id).emit('joinSuccess', game.getLobbyData()); 
+        socket.emit('joinSuccess', game.getLobbyData()); 
         io.to(roomId).emit('lobbyUpdate', game.getLobbyData());
     });
     
@@ -177,8 +180,10 @@ io.on('connection', (socket) => {
     socket.on('startGame', (roomId) => {
         const game = activeGames.get(roomId);
 
-        if (!game || game.status !== 'lobby' || !game.players.find(p => p.id === socket.id)?.isHost) {
-            console.warn(`[SEGURIDAD] Intento fallido de inicio de juego en sala: ${roomId} por ${socket.id}.`);
+        // Verificación de seguridad: Solo el host en el lobby puede iniciar
+        const isHost = game?.players.find(p => p.id === socket.id)?.isHost;
+        if (!game || game.status !== 'lobby' || !isHost) {
+            console.warn(`[SEGURIDAD] Intento fallido de inicio de juego en sala: ${roomId} por ${socket.id}. (No es Host o no está en Lobby)`);
             return;
         }
 
@@ -211,7 +216,8 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            const snapshot = game.gameLogic.getGameStateSnapshot();
+            // CRÍTICO: gameLogic.getGameStateSnapshot() fue agregado a gameLogic.js
+            const snapshot = game.gameLogic.getGameStateSnapshot(); 
             io.to(roomId).emit('gameState', snapshot);
             
         }, 1000 / SERVER_TICK_RATE);
@@ -246,10 +252,14 @@ io.on('connection', (socket) => {
             if (game.status === 'playing' && game.gameLogic) {
                 game.gameLogic.removePlayer(socket.id);
                 io.to(roomId).emit('playerDisconnected', socket.id);
+                // Si el juego está en curso y el host se va, se podría detener la partida
+                // Por ahora, solo reasignamos el host para el lobby/futuros juegos
             }
             
             // 3. Limpiar la sala o reasignar Host
             handleGameCleanup(roomId);
+
+            // Si el juego estaba en curso y la sala queda vacía, se detiene en handleGameCleanup
         } else {
             userToRoom.delete(socket.id); 
         }
@@ -259,13 +269,11 @@ io.on('connection', (socket) => {
 });
 
 
-
-
 // --- INICIO DEL SERVIDOR ---
 
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client', 'index.html')); // Ruta corregida
+    res.sendFile(path.join(__dirname, '../client', 'index.html')); 
 });
 
 

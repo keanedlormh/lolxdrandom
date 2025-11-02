@@ -110,6 +110,14 @@ class ServerZombie extends ServerEntity {
                 const ny = dy / distance;
                 this.x += nx * this.speed;
                 this.y += ny * this.speed;
+            } else {
+                // Ataque: Si están lo suficientemente cerca
+                const currentTime = Date.now();
+                if (currentTime - this.lastAttackTime > ZOMBIE_ATTACK_COOLDOWN) {
+                    target.health = Math.max(0, target.health - ZOMBIE_ATTACK_DAMAGE);
+                    this.lastAttackTime = currentTime;
+                    console.log(`[GAME] Jugador ${target.id} golpeado por zombi. Vida: ${target.health}`);
+                }
             }
         }
     }
@@ -160,6 +168,9 @@ class GameLogic {
             { x: entity.x - radius, y: entity.y }, // Izquierda
             { x: entity.x, y: entity.y + radius }, // Abajo
             { x: entity.x, y: entity.y - radius }, // Arriba
+            // Esquinas para mayor precisión
+            { x: entity.x + radius / 1.5, y: entity.y + radius / 1.5 }, 
+            { x: entity.x - radius / 1.5, y: entity.y - radius / 1.5 }
         ];
 
         for (const p of checkPoints) {
@@ -200,7 +211,7 @@ class GameLogic {
      */
     createBullet(playerId, x, y, dx, dy) {
         const player = this.entities.players.get(playerId);
-        if (!player) return;
+        if (!player || player.health <= 0) return;
         
         // Cooldown Check
         const currentTime = Date.now();
@@ -211,7 +222,8 @@ class GameLogic {
 
         // Generar bala
         const bulletId = `bullet_${playerId}_${currentTime}`; 
-        const startX = x + dx * (player.radius + 4);
+        // Iniciar la bala justo fuera del radio del jugador
+        const startX = x + dx * (player.radius + 4); 
         const startY = y + dy * (player.radius + 4);
 
         const newBullet = new ServerBullet(bulletId, startX, startY, dx, dy);
@@ -224,7 +236,9 @@ class GameLogic {
      */
     update() {
         const currentTime = Date.now();
-        const deltaTime = currentTime - this.lastUpdateTime;
+        // Usar deltaTime solo para lógica basada en el tiempo (como ataque/cooldown), 
+        // no para movimiento ya que estamos usando un tick rate fijo.
+        const deltaTime = currentTime - this.lastUpdateTime; 
         this.lastUpdateTime = currentTime;
         
         // 1. Actualizar Posición del Jugador con Colisión
@@ -237,47 +251,30 @@ class GameLogic {
             const oldX = player.x;
             const oldY = player.y;
 
-            // Intento de movimiento X
+            // Intento de movimiento X (y Colisión)
             player.x += player.input.moveX * player.speed;
             if (this.checkMapCollision(player)) {
-                player.x = oldX; // Revertir si colisiona
+                player.x = oldX; 
             }
 
-            // Intento de movimiento Y
+            // Intento de movimiento Y (y Colisión)
             player.y += player.input.moveY * player.speed;
             if (this.checkMapCollision(player)) {
-                player.y = oldY; // Revertir si colisiona
+                player.y = oldY; 
             }
 
-            // Disparo: La lógica de cooldown se ejecuta en handlePlayerInput/createBullet
+            // Disparo
             if (player.input.isShooting) {
                 this.createBullet(player.id, player.x, player.y, player.input.shootX, player.input.shootY);
             }
         });
 
 
-        // 2. Actualizar Zombis: Mover y Atacar
+        // 2. Actualizar Zombis: Mover, Atacar y Colisiones
         this.entities.zombies.forEach(zombie => {
             zombie.updateAI(this.entities.players);
-            
-            // Colisión Zombie ↔ Jugador
-            this.entities.players.forEach(player => {
-                if (player.health > 0) {
-                    const dx = player.x - zombie.x;
-                    const dy = player.y - zombie.y;
-                    const distSq = dx * dx + dy * dy;
-                    const collisionDistSq = (player.radius + zombie.radius) ** 2;
-
-                    if (distSq < collisionDistSq) {
-                        // Atacar al jugador
-                        if (currentTime - zombie.lastAttackTime > ZOMBIE_ATTACK_COOLDOWN) {
-                            player.health = Math.max(0, player.health - ZOMBIE_ATTACK_DAMAGE);
-                            zombie.lastAttackTime = currentTime;
-                            console.log(`[GAME] Jugador ${player.id} golpeado. Vida: ${player.health}`);
-                        }
-                    }
-                }
-            });
+            // La colisión Zombie-Muro se manejará automáticamente por la IA,
+            // pero podríamos añadir un chequeo de colisión de mapa si fuera necesario.
         });
 
         // 3. Actualizar Balas y Colisiones
@@ -332,6 +329,39 @@ class GameLogic {
         }
     }
 
+
+    /**
+     * Genera un estado de juego compacto y seguro para enviar al cliente.
+     */
+    getGameStateSnapshot() {
+        // Crear un snapshot de estado seguro y compacto para el cliente
+        return {
+            players: Array.from(this.entities.players.values()).map(p => ({
+                id: p.id,
+                x: p.x,
+                y: p.y,
+                name: p.name,
+                health: p.health,
+                kills: p.kills,
+                shootX: p.input.shootX, 
+                shootY: p.input.shootY
+            })),
+            zombies: Array.from(this.entities.zombies.values()).map(z => ({
+                id: z.id,
+                x: z.x,
+                y: z.y,
+                health: z.health,
+                maxHealth: z.maxHealth
+            })),
+            bullets: Array.from(this.entities.bullets.values()).map(b => ({
+                id: b.id,
+                x: b.x,
+                y: b.y
+            })),
+            score: this.score,
+            wave: this.wave
+        };
+    }
 
     /**
      * Guarda el input del cliente para ser usado en el próximo tick de actualización.

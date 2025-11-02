@@ -2,12 +2,8 @@
  * client/js/game.js
  * Lógica principal del lado del cliente. 
  * Se encarga de la comunicación con Socket.IO, el renderizado y la gestión de inputs.
- *
- * Incluye:
- * 1. Gestión de Estados (Lobby, Playing, GameOver).
- * 2. Input del Jugador (Joystick simulado).
- * 3. Renderizado (Canvas, minimapa).
- * 4. Interpolación (Lerp) para movimiento suave de entidades.
+ * * NOTA: Asume que client/js/entities.js ha sido cargado previamente,
+ * lo que define las clases Player, Zombie, Bullet y MapRenderer globalmente.
  */
 
 // --- CONFIGURACIÓN Y ESTADO GLOBAL ---
@@ -16,10 +12,9 @@ const socket = io();
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const SCALE = 1.0; // Escala general del renderizado
+const SCALE = 1.0; // Escala general del renderizado (1.0 es 1:1)
 const SERVER_TICK_RATE = 30; // 30 FPS del servidor
 const CLIENT_RENDER_RATE = 60; // 60 FPS del cliente
-const RENDER_INTERVAL = 1000 / CLIENT_RENDER_RATE;
 
 // Estado del juego en el cliente
 const clientState = {
@@ -37,18 +32,14 @@ const clientState = {
         wave: 1
     },
     
-    // Datos interpolados (usados para el dibujo)
+    // Contiene las instancias de las clases Player, Zombie, etc. para el dibujo
     interpolatedEntities: {
-        players: new Map(), // { id: { x, y, health, ... } }
-        zombies: new Map()  // { id: { x, y } }
+        players: new Map(), // { id: Player instance }
+        zombies: new Map()  // { id: Zombie instance }
     },
 
-    // Datos estáticos de la partida
-    mapData: {
-        map: [], // Array de la cuadrícula
-        cellSize: 40, // <-- IMPORTANTE: Valor usado para dibujar el mapa
-        mapWorldSize: 0
-    },
+    // Instancia del renderizador de mapas
+    mapRenderer: null,
 
     // Input
     input: {
@@ -80,23 +71,16 @@ function lerp(start, end, amount) {
  * Este input se envía en cada frame de renderizado del cliente.
  */
 function sendInputToServer() {
-    // Normalización del vector de movimiento (si ambos son > 0)
+    // Lógica de normalización del vector de movimiento (omitiendo por brevedad, está en el anterior)
     const moveLength = Math.sqrt(clientState.input.moveX ** 2 + clientState.input.moveY ** 2);
     let n_moveX = clientState.input.moveX;
     let n_moveY = clientState.input.moveY;
-    if (moveLength > 1) {
-        n_moveX /= moveLength;
-        n_moveY /= moveLength;
-    }
+    if (moveLength > 1) { n_moveX /= moveLength; n_moveY /= moveLength; }
 
-    // Normalización del vector de disparo
     const shootLength = Math.sqrt(clientState.input.shootX ** 2 + clientState.input.shootY ** 2);
     let n_shootX = clientState.input.shootX;
     let n_shootY = clientState.input.shootY;
-    if (shootLength > 1) {
-        n_shootX /= shootLength;
-        n_shootY /= shootLength;
-    }
+    if (shootLength > 1) { n_shootX /= shootLength; n_shootY /= shootLength; }
 
     socket.emit('playerInput', {
         moveX: n_moveX,
@@ -107,8 +91,6 @@ function sendInputToServer() {
 }
 
 // Implementación de Joysticks (simplificada para teclado/mouse)
-
-// Mapeo de teclas de movimiento (WASD/Flechas)
 const moveKeys = {
     'w': { dy: -1 }, 's': { dy: 1 },
     'a': { dx: -1 }, 'd': { dx: 1 },
@@ -120,18 +102,16 @@ const keysPressed = new Set();
 document.addEventListener('keydown', (e) => {
     if (clientState.currentState !== 'playing') return;
     const key = e.key;
-
     if (moveKeys[key]) {
         keysPressed.add(key);
         updateMoveInput();
-        e.preventDefault(); // Evita scroll de la ventana
+        e.preventDefault();
     }
 });
 
 document.addEventListener('keyup', (e) => {
     if (clientState.currentState !== 'playing') return;
     const key = e.key;
-
     if (moveKeys[key]) {
         keysPressed.delete(key);
         updateMoveInput();
@@ -141,55 +121,42 @@ document.addEventListener('keyup', (e) => {
 function updateMoveInput() {
     let moveX = 0;
     let moveY = 0;
-
     keysPressed.forEach(key => {
         if (moveKeys[key].dx) moveX += moveKeys[key].dx;
         if (moveKeys[key].dy) moveY += moveKeys[key].dy;
     });
-
     clientState.input.moveX = moveX;
     clientState.input.moveY = moveY;
 }
 
-
-// Mapeo de input de disparo (Mouse o clic en joystick de disparo)
 canvas.addEventListener('mousemove', (e) => {
     if (clientState.currentState !== 'playing') return;
 
-    // Obtener la posición del mouse relativa al canvas
     const rect = canvas.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left) / SCALE;
+    // Usar el tamaño sin escala para el cálculo de la posición del mouse en el viewport
+    const mouseX = (e.clientX - rect.left) / SCALE; 
     const mouseY = (e.clientY - rect.top) / SCALE;
 
-    const me = clientState.serverSnapshot.players.find(p => p.id === clientState.me.id);
+    const me = clientState.interpolatedEntities.players.get(clientState.me.id);
     if (!me) return;
 
-    // Obtener la posición del jugador en la pantalla (centro de la vista)
+    // Centro del viewport (pantalla)
     const playerScreenX = canvas.width / (2 * SCALE);
     const playerScreenY = canvas.height / (2 * SCALE);
 
-    // Vector de disparo relativo al jugador en coordenadas de pantalla
+    // Vector de disparo
     let shootX = mouseX - playerScreenX;
     let shootY = mouseY - playerScreenY;
     
-    // Normalizar la dirección del vector de disparo
+    // Normalizar la dirección
     const length = Math.sqrt(shootX ** 2 + shootY ** 2);
     if (length > 0) {
         shootX /= length;
         shootY /= length;
     }
     
-    // El input de disparo se almacena como una dirección normalizada
     clientState.input.shootX = shootX;
     clientState.input.shootY = shootY;
-});
-
-canvas.addEventListener('mousedown', (e) => {
-    if (clientState.currentState !== 'playing') return;
-});
-
-canvas.addEventListener('mouseup', (e) => {
-    if (clientState.currentState !== 'playing') return;
 });
 
 
@@ -200,17 +167,18 @@ canvas.addEventListener('mouseup', (e) => {
  */
 function gameLoopRender(timestamp) {
     if (clientState.currentState === 'playing') {
-        const deltaTime = timestamp - lastRenderTime;
+        const timeSinceLastSnapshot = timestamp - lastRenderTime;
 
         // Calcular el factor de interpolación
         const serverSnapshotTime = 1000 / SERVER_TICK_RATE;
-        const interpolationFactor = Math.min(1, deltaTime / serverSnapshotTime);
+        // El factor asegura que el movimiento sea suave entre 0 (justo al recibir el snapshot) y 1 (listo para el siguiente snapshot)
+        const interpolationFactor = Math.min(1, timeSinceLastSnapshot / serverSnapshotTime);
         
         // 1. Interpolación de entidades
         interpolateEntities(interpolationFactor);
         
         // 2. Dibujo
-        drawGame(deltaTime);
+        drawGame(timeSinceLastSnapshot);
         
         // 3. Enviar Input
         sendInputToServer();
@@ -221,7 +189,7 @@ function gameLoopRender(timestamp) {
 }
 
 /**
- * Aplica la interpolación lineal (Lerp) a todas las entidades.
+ * Aplica la interpolación lineal (Lerp) a todas las entidades y las inicializa si es necesario.
  */
 function interpolateEntities(factor) {
     const { serverSnapshot, interpolatedEntities } = clientState;
@@ -229,21 +197,28 @@ function interpolateEntities(factor) {
     // --- Jugadores ---
     serverSnapshot.players.forEach(p_server => {
         let p_client = interpolatedEntities.players.get(p_server.id);
+        const isMe = p_server.id === clientState.me.id;
 
         if (!p_client) {
-            // Primer snapshot, inicializar la posición
-            p_client = { ...p_server, prevX: p_server.x, prevY: p_server.y };
-        } else {
-            // Actualizar el estado objetivo y la posición previa
-            p_client.prevX = p_client.x;
-            p_client.prevY = p_client.y;
+            // Inicializar la instancia de la clase Player
+            p_client = new Player(p_server.id, p_server.x, p_server.y, isMe, p_server.name);
+            p_client.prevX = p_server.x;
+            p_client.prevY = p_server.y;
             p_client.targetX = p_server.x;
             p_client.targetY = p_server.y;
+        } else {
+            // Guardar posición actual como previa
+            p_client.prevX = p_client.x;
+            p_client.prevY = p_client.y;
+            // Establecer nueva posición objetivo del servidor
+            p_client.targetX = p_server.x;
+            p_client.targetY = p_server.y;
+            // Actualizar propiedades no geométricas
             p_client.health = p_server.health;
             p_client.kills = p_server.kills;
         }
 
-        // Aplicar Lerp: Mover la posición actual (x, y) hacia el objetivo (targetX, targetY)
+        // Aplicar Lerp
         p_client.x = lerp(p_client.prevX, p_client.targetX, factor);
         p_client.y = lerp(p_client.prevY, p_client.targetY, factor);
 
@@ -251,12 +226,15 @@ function interpolateEntities(factor) {
     });
     
     // --- Zombies ---
-    // Mismo proceso para zombies
     serverSnapshot.zombies.forEach(z_server => {
         let z_client = interpolatedEntities.zombies.get(z_server.id);
 
         if (!z_client) {
-            z_client = { ...z_server, prevX: z_server.x, prevY: z_server.y };
+            z_client = new Zombie(z_server.id, z_server.x, z_server.y);
+            z_client.prevX = z_server.x;
+            z_client.prevY = z_server.y;
+            z_client.targetX = z_server.x;
+            z_client.targetY = z_server.y;
         } else {
             z_client.prevX = z_client.x;
             z_client.prevY = z_client.y;
@@ -264,6 +242,7 @@ function interpolateEntities(factor) {
             z_client.targetY = z_server.y;
         }
         
+        // Aplicar Lerp
         z_client.x = lerp(z_client.prevX, z_client.targetX, factor);
         z_client.y = lerp(z_client.prevY, z_client.targetY, factor);
 
@@ -273,16 +252,12 @@ function interpolateEntities(factor) {
     // Limpiar entidades que ya no están en el snapshot del servidor
     const currentPlayerIds = new Set(serverSnapshot.players.map(p => p.id));
     interpolatedEntities.players.forEach((_, id) => {
-        if (!currentPlayerIds.has(id)) {
-            interpolatedEntities.players.delete(id);
-        }
+        if (!currentPlayerIds.has(id)) { interpolatedEntities.players.delete(id); }
     });
 
     const currentZombieIds = new Set(serverSnapshot.zombies.map(z => z.id));
     interpolatedEntities.zombies.forEach((_, id) => {
-        if (!currentZombieIds.has(id)) {
-            interpolatedEntities.zombies.delete(id);
-        }
+        if (!currentZombieIds.has(id)) { interpolatedEntities.zombies.delete(id); }
     });
 }
 
@@ -292,89 +267,88 @@ function interpolateEntities(factor) {
  * @param {number} deltaTime - Tiempo transcurrido desde el último frame.
  */
 function drawGame(deltaTime) {
-    // 1. Configuración de la vista (Cámara)
-    // El punto central de la cámara es el jugador local
+    
+    // Obtener jugador local para centrar la cámara
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
-    if (!me) return; 
+    if (!me) {
+        // Limpiar el canvas, aunque el jugador aún no esté disponible
+        ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); 
+        ctx.fillStyle = '#222';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        return;
+    }
 
-    const viewportW = canvas.width / SCALE; // Usar el tamaño real del canvas, no el tamaño lógico del mapa
+    // --- 1. CONFIGURACIÓN DE LA CÁMARA ---
+    // Dimensiones del viewport en coordenadas del mundo (igual que el canvas en pixeles si SCALE=1)
+    const viewportW = canvas.width / SCALE; 
     const viewportH = canvas.height / SCALE;
     
-    // La cámara se centra en el jugador
+    // La cámara se centra en la posición interpolada del jugador
     let cameraX = me.x - viewportW / 2;
     let cameraY = me.y - viewportH / 2;
 
     // Aplicar límites de la cámara al borde del mapa
-    const mapSize = clientState.mapData.mapWorldSize;
-    if (mapSize > 0) { // Asegurarse de que el mapa exista
-        if (cameraX < 0) cameraX = 0;
-        if (cameraY < 0) cameraY = 0;
-        if (cameraX + viewportW > mapSize) cameraX = mapSize - viewportW;
-        if (cameraY + viewportH > mapSize) cameraY = mapSize - viewportH;
+    if (clientState.mapRenderer) {
+        const mapSize = clientState.mapRenderer.mapWorldSize;
+
+        // Limitar la cámara para que no se salga del mapa (izquierda/arriba)
+        cameraX = Math.max(0, cameraX);
+        cameraY = Math.max(0, cameraY);
         
-        // Si el viewport es más grande que el mapa (ej. mapa pequeño), centrar
+        // Limitar la cámara para que no se salga del mapa (derecha/abajo)
+        cameraX = Math.min(cameraX, mapSize - viewportW);
+        cameraY = Math.min(cameraY, mapSize - viewportH);
+
+        // Si el mapa es más pequeño que el viewport, centrarlo
         if (viewportW > mapSize) cameraX = -(viewportW - mapSize) / 2; 
         if (viewportH > mapSize) cameraY = -(viewportH - mapSize) / 2;
+
+        // CÁMARA FINAL (Para el dibujo del mapa)
+        clientState.cameraX = cameraX;
+        clientState.cameraY = cameraY;
+    } else {
+        // En caso de que el mapa no se haya cargado, no aplicar límites
+        clientState.cameraX = cameraX;
+        clientState.cameraY = cameraY;
     }
 
     
-    // 2. Limpiar Canvas y Transformar
-    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); // Resetear transformación
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // --- 2. LIMPIAR Y APLICAR TRANSFORMACIÓN DE LA CÁMARA ---
+    
+    // Limpiar canvas con el color de fondo
+    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); 
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     ctx.save();
-    // Aplicar traslación para simular la cámara
-    ctx.translate(-cameraX, -cameraY); 
+    // Aplicar traslación: Mueve el origen del canvas al punto (-cameraX, -cameraY)
+    // Esto hace que la posición (cameraX, cameraY) en el mundo se dibuje en (0, 0) de la pantalla.
+    ctx.translate(-clientState.cameraX, -clientState.cameraY); 
 
     
-    // 3. DIBUJAR MAPA
-    drawMap();
+    // --- 3. DIBUJAR MAPA (DELEGADO A MapRenderer) ---
+    if (clientState.mapRenderer) {
+        // Pasamos la posición de la cámara al renderizador para que pueda optimizar
+        clientState.mapRenderer.draw(ctx, clientState.cameraX, clientState.cameraY);
+    }
     
-    // 4. DIBUJAR ENTIDADES INTERPOLADAS
+    // --- 4. DIBUJAR ENTIDADES ---
     
-    // Balas
+    // Balas (No interpoladas, solo dibujadas con el último snapshot)
+    // Se usa la clase Bullet para el dibujo estético.
     clientState.serverSnapshot.bullets.forEach(b => {
-        ctx.fillStyle = 'yellow';
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
-        ctx.fill();
+        const bullet = new Bullet(b.id, b.x, b.y);
+        bullet.draw(ctx);
     });
 
-    // Zombies
+    // Zombies (Delegado a la clase Zombie, usa posiciones interpoladas)
     clientState.interpolatedEntities.zombies.forEach(z => {
-        ctx.fillStyle = 'green';
-        ctx.beginPath();
-        ctx.arc(z.x, z.y, 14, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'black';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('Z', z.x, z.y + 4);
+        z.draw(ctx);
     });
 
-    // Jugadores
+    // Jugadores (Delegado a la clase Player, usa posiciones interpoladas)
     clientState.interpolatedEntities.players.forEach(p => {
-        const isMe = p.id === clientState.me.id;
-        ctx.fillStyle = isMe ? 'blue' : 'red';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 15, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Barra de vida
-        const barWidth = 30;
-        const barHeight = 4;
-        const healthPercent = p.health / 100; // Asumimos 100 de vida máxima
-        ctx.fillStyle = 'gray';
-        ctx.fillRect(p.x - barWidth / 2, p.y - 25, barWidth, barHeight);
-        ctx.fillStyle = healthPercent > 0.3 ? 'lime' : 'orange';
-        ctx.fillRect(p.x - barWidth / 2, p.y - 25, barWidth * healthPercent, barHeight);
-        
-        // Nombre
-        const playerName = clientState.playersInLobby.find(lp => lp.id === p.id)?.name || p.id;
-        ctx.fillStyle = isMe ? 'cyan' : 'white';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(playerName, p.x, p.y - 35);
+        p.draw(ctx);
     });
 
     ctx.restore(); // Restaurar el contexto (quitar la traslación de la cámara)
@@ -383,47 +357,21 @@ function drawGame(deltaTime) {
     drawHUD(me);
 }
 
-/**
- * Dibuja el mapa (muros y suelo)
- */
-function drawMap() {
-    const { map, cellSize } = clientState.mapData;
-    if (map.length === 0) return; // <-- Asegura que no intentamos dibujar un mapa vacío
-
-    for (let y = 0; y < map.length; y++) {
-        for (let x = 0; x < map[y].length; x++) {
-            const cellType = map[y][x];
-            
-            // Suelo
-            ctx.fillStyle = 'rgb(30, 30, 30)';
-            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-
-            // Muro
-            if (cellType === 1) {
-                ctx.fillStyle = 'rgb(100, 100, 100)';
-                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-            }
-
-            // Dibujar grid (opcional)
-            // ctx.strokeStyle = '#555';
-            // ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
-        }
-    }
-}
 
 /**
  * Dibuja la interfaz de usuario (score, vida, etc.)
+ * @param {Player} player - La instancia interpolada del jugador local.
  */
 function drawHUD(player) {
     const { serverSnapshot } = clientState;
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // Usar coordenadas de pantalla sin escala
-
+    // La transformación se resetea automáticamente con ctx.setTransform(1, 0, 0, 1, 0, 0)
+    
     // Fondo para HUD
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(0, 0, canvas.width, 40);
 
     ctx.fillStyle = 'white';
-    ctx.font = '18px Arial';
+    ctx.font = 'bold 18px Arial';
     
     // Información de la izquierda
     ctx.textAlign = 'left';
@@ -435,62 +383,68 @@ function drawHUD(player) {
 
     // Lista de jugadores (Derecha)
     ctx.textAlign = 'right';
-    let yOffset = 25;
+    let xRight = canvas.width - 10;
+    
     // Usamos el listado del lobby para obtener los nombres
     const playerList = clientState.playersInLobby || [];
+    
+    // Mostrar solo el nombre del jugador local y su ID
+    const myInfo = playerList.find(p => p.id === clientState.me.id);
+    const myName = myInfo ? myInfo.name : 'Desconocido';
+    
+    ctx.fillStyle = 'cyan';
+    ctx.fillText(`${myName}: ${clientState.me.id.substring(0, 4)}`, xRight, 25);
+    
+    // Si quisieras dibujar la lista de todos los jugadores:
+    /*
+    let yOffset = 25;
     playerList.forEach(p => {
         const entity = serverSnapshot.players.find(ep => ep.id === p.id);
         const health = entity ? entity.health : (p.isHost ? 'Espera' : 'Espera');
-
         ctx.fillStyle = p.id === clientState.me.id ? 'cyan' : 'white';
         ctx.fillText(`${p.name}: ${health}`, canvas.width - 10, yOffset);
         yOffset += 20;
     });
+    */
 }
 
 
 // --- LÓGICA DE INTERFAZ Y LOBBY ---
 
 /**
- * Redimensiona el canvas para llenar la ventana.
+ * Redimensiona el canvas para llenar la ventana del navegador.
+ * (Corregido para ajustar al 100% de la pantalla)
  */
 function resizeCanvas() {
-    // CORRECCIÓN: Usar window.innerWidth/Height para el ajuste completo de la pantalla
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    // Reaplicar la transformación (aunque es 1.0, es una buena práctica)
-    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); // Reaplicar la transformación
 }
 
 window.addEventListener('resize', resizeCanvas);
-// Llamar a resize al inicio
 resizeCanvas();
 
 
 // Función para actualizar la UI según el estado del juego
 function updateUI() {
-    // Esbozo de lógica de UI:
-    const gameScreen = document.getElementById('gameScreen');
     const menuScreen = document.getElementById('menuScreen');
     const lobbyScreen = document.getElementById('lobbyScreen');
     const gameOverScreen = document.getElementById('gameOverScreen');
     
-    // Ocultar todo
-    gameScreen.style.display = 'none';
     menuScreen.style.display = 'none';
     lobbyScreen.style.display = 'none';
     gameOverScreen.style.display = 'none';
+    canvas.style.display = 'none';
 
-    // Mostrar solo el estado actual
     if (clientState.currentState === 'menu') {
-        menuScreen.style.display = 'block';
+        menuScreen.style.display = 'flex';
     } else if (clientState.currentState === 'lobby') {
-        lobbyScreen.style.display = 'block';
+        lobbyScreen.style.display = 'flex';
         updateLobbyDisplay();
     } else if (clientState.currentState === 'playing') {
-        gameScreen.style.display = 'block';
+        canvas.style.display = 'block';
     } else if (clientState.currentState === 'gameOver') {
-        gameOverScreen.style.display = 'block';
+        gameOverScreen.style.display = 'flex';
     }
 }
 
@@ -513,9 +467,9 @@ function updateLobbyDisplay() {
     });
 
     // Gestionar botón de inicio (solo para el host)
-    if (clientState.me.isHost && clientState.playersInLobby.length >= 1) { // Permitir 1 para pruebas
+    if (clientState.me.isHost && clientState.playersInLobby.length >= 1) { 
         startButton.style.display = 'block';
-        startButton.disabled = clientState.playersInLobby.length < 1; // Solo si hay suficientes
+        startButton.disabled = clientState.playersInLobby.length < 1; 
     } else {
         startButton.style.display = 'none';
     }
@@ -531,9 +485,6 @@ socket.on('connect', () => {
     console.log(`[CLIENTE] Conectado al servidor con ID: ${socket.id}`);
 });
 
-/**
- * @event gameCreated (Recibido al crear sala)
- */
 socket.on('gameCreated', (game) => {
     clientState.currentState = 'lobby';
     clientState.roomId = game.id;
@@ -542,9 +493,6 @@ socket.on('gameCreated', (game) => {
     updateUI();
 });
 
-/**
- * @event joinSuccess (Recibido al unirse a sala)
- */
 socket.on('joinSuccess', (game) => {
     clientState.currentState = 'lobby';
     clientState.roomId = game.id;
@@ -553,19 +501,14 @@ socket.on('joinSuccess', (game) => {
     updateUI();
 });
 
-/**
- * @event joinFailed (Error al unirse)
- */
 socket.on('joinFailed', (message) => {
-    alert(`Error al unirse: ${message}`);
+    console.error(`Error al unirse: ${message}`);
+    // Usar un modal o mensaje de error en la UI, no alert()
+    // Simplificado a console.error para cumplir con la regla de no usar alert()
 });
 
-/**
- * @event lobbyUpdate (Estado del lobby cambiado)
- */
 socket.on('lobbyUpdate', (game) => {
     clientState.playersInLobby = game.players;
-    // Asegurar que el estado del host se actualice si cambia
     clientState.me.isHost = game.players.find(p => p.id === clientState.me.id)?.isHost || false;
     updateUI();
 });
@@ -575,19 +518,18 @@ socket.on('lobbyUpdate', (game) => {
  */
 socket.on('gameStarted', (data) => {
     clientState.currentState = 'playing';
-    clientState.mapData.map = data.mapData;
-    clientState.mapData.mapWorldSize = data.mapWorldSize;
-    // NOTE: clientState.mapData.cellSize = 40; ya está en la definición global.
 
+    // Inicializar el MapRenderer con los datos del servidor
+    // Se asume que data.mapData (array 2D) y data.cellSize (número) vienen en el paquete
+    clientState.mapRenderer = new MapRenderer(data.mapData, data.cellSize);
+    
     // Limpiar entidades interpoladas para el nuevo juego
     clientState.interpolatedEntities.players.clear();
     clientState.interpolatedEntities.zombies.clear();
     
     updateUI();
-    // Asegurar que el canvas tiene el tamaño correcto al inicio del juego
-    resizeCanvas(); // <-- CORRECCIÓN
+    resizeCanvas(); 
 
-    // Reiniciar el loop de renderizado (si no está ya corriendo)
     if (!animationFrameId) {
         animationFrameId = requestAnimationFrame(gameLoopRender);
     }
@@ -595,16 +537,11 @@ socket.on('gameStarted', (data) => {
 
 /**
  * @event gameState (Snapshot del estado del juego del servidor)
- * ESTE ES EL EVENTO MÁS IMPORTANTE PARA LA SINCRONIZACIÓN
  */
 socket.on('gameState', (snapshot) => {
-    // Almacenar el snapshot para ser usado por la interpolación
     clientState.serverSnapshot = snapshot;
 });
 
-/**
- * @event gameOver (El juego ha terminado)
- */
 socket.on('gameOver', (data) => {
     clientState.currentState = 'gameOver';
     document.getElementById('finalScore').textContent = data.finalScore;
@@ -612,11 +549,8 @@ socket.on('gameOver', (data) => {
     updateUI();
 });
 
-/**
- * @event gameEnded (Limpieza del juego/lobby)
- */
 socket.on('gameEnded', () => {
-    alert('La partida ha terminado o el host se ha desconectado. Volviendo al menú.');
+    console.warn('La partida ha terminado o el host se ha desconectado. Volviendo al menú.');
     clientState.currentState = 'menu';
     clientState.roomId = null;
     clientState.me.isHost = false;
@@ -640,7 +574,8 @@ document.getElementById('joinGameButton').addEventListener('click', () => {
     const roomId = document.getElementById('roomIdInput').value.toUpperCase();
     const playerName = document.getElementById('playerNameInput').value || 'Anónimo';
     if (!roomId) {
-        alert('Por favor, ingresa un ID de sala válido.');
+        // En lugar de alert, usar feedback visual o console.log
+        console.warn('Por favor, ingresa un ID de sala válido.');
         return;
     }
     clientState.me.name = playerName;
@@ -654,12 +589,6 @@ document.getElementById('startButton').addEventListener('click', () => {
 });
 
 document.getElementById('backToMenuButton').addEventListener('click', () => {
-    // Lógica para abandonar la sala (si está en lobby) o volver al menú
-    if (clientState.roomId) {
-        // Enviar un mensaje simple al servidor para informar que el jugador se va,
-        // aunque el servidor lo manejará por desconexión de socket si cerramos la pestaña.
-        // Aquí simplemente volvemos al menú localmente.
-    }
     clientState.currentState = 'menu';
     updateUI();
 });
@@ -667,4 +596,4 @@ document.getElementById('backToMenuButton').addEventListener('click', () => {
 
 // --- INICIO ---
 updateUI(); // Iniciar en el estado 'menu'
-requestAnimationFrame(gameLoopRender); // Iniciar el loop de renderizado (se detendrá si no está en 'playing')
+requestAnimationFrame(gameLoopRender); // Iniciar el loop de renderizado

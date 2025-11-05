@@ -1,14 +1,11 @@
 /**
  * client/js/game.js - ACTUALIZADO
- * - Añadido 'controlType' a DEFAULT_CONFIG.
- * - 'loadConfig', 'saveConfig', 'applyConfigToUI', 'readConfigFromUI' ahora
- * manejan la nueva opción 'setting_controlType'.
- * - 'applyPreset' ahora fusiona los presets sin sobreescribir 'controlType'.
- * - Añadida 'updateControlMethod' para cambiar entre modos de control.
- * - Los listeners de Teclado/Ratón y Táctil ahora dependen de 'touchState.currentControlMethod'
- * en lugar de 'touchState.isTouchDevice'.
- * - 'drawJoysticks' y la lógica de interpolación de puntería ahora también
- * respetan el método de control seleccionado.
+ * - Corregido 'calculateAimVector'.
+ * - La función ahora usa la posición REAL del jugador en la pantalla
+ * (me.x - clientState.cameraX) en lugar de asumir que siempre
+ * está en el centro (canvas.width / 2).
+ * - Esto elimina el error de "paralaje" al disparar cerca
+ * de los bordes del mapa.
  */
 
 const socket = io();
@@ -205,6 +202,9 @@ const clientState = {
     },
     mapRenderer: null,
     minimapCanvas: null, // Canvas de fondo para el minimapa
+    // Posición de la cámara (cacheada para usar en aim)
+    cameraX: 0, 
+    cameraY: 0,
     input: {
         moveX: 0, moveY: 0,
         shootX: 1, shootY: 0,
@@ -285,25 +285,42 @@ function updateMoveInput() {
     clientState.input.moveY = moveY;
 }
 
+/**
+ * --- ¡FUNCIÓN CORREGIDA! ---
+ * Esta es la función clave que se ha modificado.
+ */
 function calculateAimVector(e) {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; // CHECK
 
+    // 1. Obtener 'me' (jugador local)
+    const me = clientState.interpolatedEntities.players.get(clientState.me.id);
+    
+    // Si 'me' o la cámara (cameraX) no están listos, no hacer nada.
+    if (!me || clientState.cameraX === undefined || clientState.cameraY === undefined) {
+        return;
+    }
+
+    // 2. Calcular la posición del ratón en la pantalla (como antes)
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left; 
     const mouseY = e.clientY - rect.top;
 
-    const playerScreenX = canvas.width / 2;
-    const playerScreenY = canvas.height / 2;
+    // 3. (LA CORRECCIÓN) Calcular la posición REAL del jugador en la pantalla
+    //    player_world_pos - camera_world_pos = player_screen_pos
+    const playerScreenX = me.x - clientState.cameraX;
+    const playerScreenY = me.y - clientState.cameraY;
 
+    // 4. Calcular el vector desde el jugador (en pantalla) al ratón (en pantalla)
     let shootX = mouseX - playerScreenX;
     let shootY = mouseY - playerScreenY;
 
+    // 5. Normalizar el vector (como antes)
     const length = Math.sqrt(shootX ** 2 + shootY ** 2);
     if (length > 0.1) { 
         clientState.input.shootX = shootX / length;
         clientState.input.shootY = shootY / length;
 
-        const me = clientState.interpolatedEntities.players.get(clientState.me.id);
+        // Actualizar el 'me' local para el retículo (como antes)
         if (me) {
             me.shootX = clientState.input.shootX;
             me.shootY = clientState.input.shootY;
@@ -556,7 +573,7 @@ function drawGame(deltaTime) {
         if (viewportW > mapSize) cameraX = -(viewportW - mapSize) / 2; 
         if (viewportH > mapSize) cameraY = -(viewportH - mapSize) / 2;
 
-
+        // Cachear la posición de la cámara para que la use 'calculateAimVector'
         clientState.cameraX = cameraX;
         clientState.cameraY = cameraY;
     } else {
@@ -708,7 +725,7 @@ function createMinimapBackground() {
             }
         }
     }
-
+    
     clientState.minimapCanvas = mapCanvas;
 }
 
@@ -723,13 +740,13 @@ function drawMinimap(ctx, me) {
 
     const MINIMAP_SIZE = 150; // Tamaño del minimapa en píxeles
     const MINIMAP_MARGIN = 20; // Margen desde los bordes
-
+    
     // Posición debajo de la barra de HUD (40px)
     const minimapX = canvas.width - MINIMAP_SIZE - MINIMAP_MARGIN;
     const minimapY = 40 + MINIMAP_MARGIN;
 
     const mapWorldSize = clientState.mapRenderer.mapWorldSize;
-
+    
     // Ratio para convertir coordenadas del mundo a coordenadas del minimapa
     const ratio = MINIMAP_SIZE / mapWorldSize;
 
@@ -869,7 +886,7 @@ function populateRoomList(games) {
     games.forEach(game => {
         const roomItem = document.createElement('div');
         roomItem.className = 'room-item';
-
+        
         // Info de la sala
         const roomInfo = document.createElement('div');
         roomInfo.className = 'room-info';
@@ -877,7 +894,7 @@ function populateRoomList(games) {
             <strong>Sala: ${game.id}</strong>
             <span>Host: ${game.hostName} (${game.playerCount} jugador${game.playerCount > 1 ? 'es' : ''})</span>
         `;
-
+        
         // Botón de unirse
         const joinButton = document.createElement('button');
         joinButton.textContent = 'Unirse';
@@ -942,7 +959,7 @@ socket.on('joinFailed', (message) => {
 socket.on('lobbyUpdate', (game) => {
     clientState.playersInLobby = game.players;
     clientState.me.isHost = game.players.find(p => p.id === clientState.me.id)?.isHost || false;
-
+    
     // Si estamos en el lobby, actualizamos
     if (clientState.currentState === 'lobby') {
         updateUI();
@@ -953,7 +970,7 @@ socket.on('lobbyUpdate', (game) => {
 socket.on('gameStarted', (data) => {
     clientState.currentState = 'playing';
     clientState.mapRenderer = new MapRenderer(data.mapData, data.cellSize);
-
+    
     // Crear el fondo del minimapa (solo una vez)
     createMinimapBackground(); 
 
@@ -1091,7 +1108,7 @@ document.getElementById('resetSettingsButton').addEventListener('click', () => {
     gameConfig = {...DEFAULT_CONFIG};
     // Restaurarlo
     gameConfig.controlType = currentControl;
-
+    
     applyConfigToUI();
     saveConfig();
     updateControlMethod(); // ACTUALIZAR

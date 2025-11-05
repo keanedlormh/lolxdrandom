@@ -1,131 +1,161 @@
 /**
- * server/pathfinding.js - REDISEÑADO DESDE CERO
- *
- * Esta clase ya no usa A* (A-Star).
- * Ahora genera un "Campo de Flujo" (Flow Field) usando un algoritmo BFS (Breadth-First Search).
- *
- * ¿Cómo funciona?
- * 1. Se le da la cuadrícula del mapa (muros/suelo).
- * 2. Se le da la posición del jugador (el "objetivo").
- * 3. Genera un nuevo mapa donde cada celda tiene un número:
- * - Celda del jugador = 0
- * - Celdas adyacentes = 1 (o 1.41 si es diagonal)
- * - Celdas siguientes = 2... y así sucesivamente.
- * - Muros = Infinito (99999)
- *
- * Los zombies simplemente "caerán" por esta cuadrícula, moviéndose
- * siempre al número más bajo cercano.
+ * server/pathfinding.js - ACTUALIZADO
+ * - Desactivado el movimiento diagonal en 'getNeighbors' para forzar rutas "Manhattan".
+ * - Simplificado el 'moveCost' en 'findPath' ya que ahora siempre es 1.
  */
 
-class FlowField {
-    constructor(grid) {
-        this.grid = grid; // El mapa de colisión (0=suelo, 1=muro)
+class PriorityQueue {
+    constructor() {
+        this.items = [];
+    }
+
+    enqueue(item, priority) {
+        this.items.push({ item, priority });
+        this.items.sort((a, b) => a.priority - b.priority);
+    }
+
+    dequeue() {
+        return this.items.shift()?.item;
+    }
+
+    isEmpty() {
+        return this.items.length === 0;
+    }
+}
+
+class Pathfinder {
+    constructor(grid, cellSize) {
+        this.grid = grid; // Matriz de navegación (0 = libre, 1 = muro)
+        this.cellSize = cellSize;
         this.rows = grid.length;
         this.cols = grid[0].length;
     }
 
     /**
-     * Comprueba si una celda es válida (dentro del mapa y no es un muro)
+     * Calcula la distancia Manhattan entre dos puntos
      */
-    isValid(x, y) {
-        return x >= 0 && x < this.cols && y >= 0 && y < this.rows && this.grid[y][x] === 0;
+    heuristic(a, b) {
+        return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
     }
 
     /**
-     * Genera el campo de flujo desde un punto objetivo (el jugador)
-     * @param {object} goal - Posición del objetivo en la cuadrícula {x, y}
-     * @returns {Array<Array<number>>} - Un mapa 2D con los costes (distancias)
+     * Obtiene los vecinos válidos de una celda
+     * *** DIAGONALES DESACTIVADAS ***
      */
-    generateField(goal) {
-        // 1. Crear el mapa de flujo, todo a Infinito (99999)
-        const field = Array(this.rows).fill(null).map(() => Array(this.cols).fill(99999));
-
-        // 2. Validar el punto de inicio (objetivo del jugador)
-        if (!this.isValid(goal.x, goal.y)) {
-            console.warn(`[FlowField] Objetivo en ${goal.x},${goal.y} está en un muro.`);
-            
-            // Buscar una celda válida cercana si el jugador está en un muro (poco probable)
-            let validGoal = this.findValidNeighbor(goal);
-            if (!validGoal) {
-                console.error("[FlowField] No se pudo encontrar un punto de inicio válido.");
-                return field; // Devuelve un campo vacío
-            }
-            goal = validGoal;
-        }
-
-        // 3. Configurar la cola para el algoritmo BFS
-        const queue = [];
-        
-        // 4. Iniciar: El objetivo tiene coste 0
-        field[goal.y][goal.x] = 0;
-        queue.push(goal);
-
-        // 5. Definir las 8 direcciones (incluyendo diagonales)
+    getNeighbors(node) {
+        const neighbors = [];
         const directions = [
-            { x: 0, y: -1, cost: 1 },   // Arriba
-            { x: 1, y: 0, cost: 1 },    // Derecha
-            { x: 0, y: 1, cost: 1 },    // Abajo
-            { x: -1, y: 0, cost: 1 },   // Izquierda
-            { x: 1, y: -1, cost: 1.41 },  // Arriba-Derecha
-            { x: 1, y: 1, cost: 1.41 },   // Abajo-Derecha
-            { x: -1, y: 1, cost: 1.41 },  // Abajo-Izquierda
-            { x: -1, y: -1, cost: 1.41 }  // Arriba-Izquierda
+            { x: 0, y: -1 },  // Arriba
+            { x: 1, y: 0 },   // Derecha
+            { x: 0, y: 1 },   // Abajo
+            { x: -1, y: 0 }   // Izquierda
+            // Diagonales (desactivadas para evitar "zigzag")
+            /*
+            { x: 1, y: -1 },  // Arriba-Derecha
+            { x: 1, y: 1 },   // Abajo-Derecha
+            { x: -1, y: 1 },  // Abajo-Izquierda
+            { x: -1, y: -1 }  // Arriba-Izquierda
+            */
         ];
 
-        // 6. Procesar la cola (algoritmo BFS)
-        let head = 0;
-        while (head < queue.length) {
-            const current = queue[head++];
+        for (const dir of directions) {
+            const newX = node.x + dir.x;
+            const newY = node.y + dir.y;
 
-            // Ver los 8 vecinos
-            for (const dir of directions) {
-                const newX = current.x + dir.x;
-                const newY = current.y + dir.y;
-
-                // Si el vecino es una celda válida
-                if (this.isValid(newX, newY)) {
-                    // Calcular el nuevo coste
-                    const newCost = field[current.y][current.x] + dir.cost;
-                    
-                    // Si hemos encontrado un camino más corto a esta celda
-                    if (newCost < field[newY][newX]) {
-                        // Impedir cortes de esquina (si es diagonal, los lados deben estar libres)
-                        if (dir.cost > 1) { // Es diagonal
-                            const sideA = this.isValid(current.x + dir.x, current.y);
-                            const sideB = this.isValid(current.x, current.y + dir.y);
-                            if (!sideA || !sideB) {
-                                continue; // No se puede cortar esta esquina
-                            }
-                        }
-
-                        field[newY][newX] = newCost;
-                        queue.push({ x: newX, y: newY });
-                    }
-                }
+            // Verificar límites y transitabilidad
+            if (newX >= 0 && newX < this.cols && newY >= 0 && newY < this.rows && this.grid[newY][newX] === 0) {
+                neighbors.push({ x: newX, y: newY });
             }
         }
 
-        return field;
+        return neighbors;
     }
 
     /**
-     * Función de ayuda para encontrar una celda válida si el objetivo está en un muro
+     * Algoritmo A* para encontrar el camino más corto
      */
-    findValidNeighbor(goal) {
-        const directions = [
-            { x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }
-        ];
-        for (let i = 1; i < 5; i++) {
-            for (const dir of directions) {
-                const newX = goal.x + dir.x * i;
-                const newY = goal.y + dir.y * i;
-                if (this.isValid(newX, newY)) {
-                    return { x: newX, y: newY };
+    findPath(start, goal) {
+        if (!this.isValid(start) || !this.isValid(goal)) {
+            return null;
+        }
+        if (start.x === goal.x && start.y === goal.y) {
+            return [start];
+        }
+
+        const openSet = new PriorityQueue();
+        const closedSet = new Set();
+        const cameFrom = new Map();
+        const gScore = new Map();
+        const fScore = new Map();
+
+        const startKey = `${start.x},${start.y}`;
+        const goalKey = `${goal.x},${goal.y}`;
+
+        gScore.set(startKey, 0);
+        fScore.set(startKey, this.heuristic(start, goal));
+        openSet.enqueue(start, fScore.get(startKey));
+
+        let iterations = 0;
+        const maxIterations = 1000; 
+
+        while (!openSet.isEmpty() && iterations < maxIterations) {
+            iterations++;
+            const current = openSet.dequeue();
+            const currentKey = `${current.x},${current.y}`;
+
+            if (currentKey === goalKey) {
+                return this.reconstructPath(cameFrom, current);
+            }
+
+            closedSet.add(currentKey);
+
+            const neighbors = this.getNeighbors(current);
+            for (const neighbor of neighbors) {
+                const neighborKey = `${neighbor.x},${neighbor.y}`;
+
+                if (closedSet.has(neighborKey)) {
+                    continue;
+                }
+
+                // *** COSTE SIMPLIFICADO: Siempre 1 (no hay diagonales) ***
+                const moveCost = 1;
+                const tentativeGScore = gScore.get(currentKey) + moveCost;
+
+                if (!gScore.has(neighborKey) || tentativeGScore < gScore.get(neighborKey)) {
+                    cameFrom.set(neighborKey, current);
+                    gScore.set(neighborKey, tentativeGScore);
+                    fScore.set(neighborKey, tentativeGScore + this.heuristic(neighbor, goal));
+                    openSet.enqueue(neighbor, fScore.get(neighborKey));
                 }
             }
         }
-        return null; // No se encontró nada
+        return null; // No se encontró camino
+    }
+
+    /**
+     * Reconstruye el camino desde el objetivo hasta el inicio
+     */
+    reconstructPath(cameFrom, current) {
+        const path = [current];
+        let currentKey = `${current.x},${current.y}`;
+
+        while (cameFrom.has(currentKey)) {
+            current = cameFrom.get(currentKey);
+            path.unshift(current);
+            currentKey = `${current.x},${current.y}`;
+        }
+        return path;
+    }
+
+    /**
+     * Verifica si una posición es válida y transitable
+     */
+    isValid(pos) {
+        if (!pos) return false;
+        return pos.x >= 0 && pos.x < this.cols &&
+               pos.y >= 0 && pos.y < this.rows &&
+               this.grid[pos.y][pos.x] === 0;
     }
 }
 
-module.exports = FlowField;
+module.exports = Pathfinder;

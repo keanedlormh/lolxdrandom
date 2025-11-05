@@ -1,8 +1,10 @@
 /**
  * server/serverMapGenerator.js - ACTUALIZADO
- * Generador de mapas procedurales con salas conectadas por pasillos laberínticos
- * **CORREGIDO EL FALLBACK DE GETSPAWNPOINT**
+ * - Añadida una función helper 'isValid(x, y)' para que 
+ * la lógica del juego (zombies) pueda comprobar
+ * fácilmente si una celda de la cuadrícula es transitable.
  */
+
 
 class ServerMapGenerator {
     constructor(config = {}) {
@@ -10,11 +12,12 @@ class ServerMapGenerator {
         this.cellSize = config.cellSize || 40;
         this.numRooms = config.roomCount || 6;
         this.corridorWidth = config.corridorWidth || 3;
-
+        
         this.map = this.generateMapArray();
         this.worldSize = this.gridSize * this.cellSize;
         this.rooms = []; // Almacena las salas generadas
     }
+
 
     /**
      * Genera un mapa con salas conectadas por pasillos
@@ -22,25 +25,25 @@ class ServerMapGenerator {
     generateMapArray() {
         // 1. Inicializar mapa lleno de muros
         const map = Array(this.gridSize).fill(0).map(() => Array(this.gridSize).fill(1));
-
+        
         this.rooms = [];
-
+        
         // 2. Generar salas aleatorias
         const minRoomSize = 6;
         const maxRoomSize = Math.floor(this.gridSize / 5);
-
+        
         let attempts = 0;
         const maxAttempts = 50;
-
+        
         while (this.rooms.length < this.numRooms && attempts < maxAttempts) {
             const roomW = minRoomSize + Math.floor(Math.random() * (maxRoomSize - minRoomSize));
             const roomH = minRoomSize + Math.floor(Math.random() * (maxRoomSize - minRoomSize));
-
+            
             const roomX = 2 + Math.floor(Math.random() * (this.gridSize - roomW - 4));
             const roomY = 2 + Math.floor(Math.random() * (this.gridSize - roomH - 4));
-
+            
             const newRoom = { x: roomX, y: roomY, w: roomW, h: roomH };
-
+            
             // Verificar que no se superponga con otras salas
             let overlaps = false;
             for (const room of this.rooms) {
@@ -49,27 +52,27 @@ class ServerMapGenerator {
                     break;
                 }
             }
-
+            
             if (!overlaps) {
                 this.rooms.push(newRoom);
                 this.carveRoom(map, newRoom);
             }
-
+            
             attempts++;
         }
-
+        
         // 3. Conectar las salas con pasillos
         for (let i = 0; i < this.rooms.length - 1; i++) {
             const roomA = this.rooms[i];
             const roomB = this.rooms[i + 1];
             this.connectRooms(map, roomA, roomB);
         }
-
+        
         // 4. Conectar la primera con la última para crear más caminos
         if (this.rooms.length > 2) {
             this.connectRooms(map, this.rooms[0], this.rooms[this.rooms.length - 1]);
         }
-
+        
         // 5. Añadir conexiones adicionales aleatorias para más complejidad
         const extraConnections = Math.floor(this.rooms.length / 3);
         for (let i = 0; i < extraConnections; i++) {
@@ -79,9 +82,10 @@ class ServerMapGenerator {
                 this.connectRooms(map, roomA, roomB);
             }
         }
-
+        
         return map;
     }
+
 
     /**
      * Verifica si dos salas se superponen (con margen de seguridad)
@@ -96,6 +100,7 @@ class ServerMapGenerator {
         );
     }
 
+
     /**
      * Crea una sala (espacio abierto) en el mapa
      */
@@ -108,6 +113,7 @@ class ServerMapGenerator {
             }
         }
     }
+
 
     /**
      * Conecta dos salas con un pasillo en forma de L
@@ -123,6 +129,7 @@ class ServerMapGenerator {
             y: Math.floor(roomB.y + roomB.h / 2)
         };
 
+
         // Decidir aleatoriamente si ir primero horizontal o vertical
         if (Math.random() < 0.5) {
             // Horizontal primero, luego vertical
@@ -135,6 +142,7 @@ class ServerMapGenerator {
         }
     }
 
+
     /**
      * Crea un pasillo horizontal con el ancho configurado
      */
@@ -142,6 +150,7 @@ class ServerMapGenerator {
         const minX = Math.min(x1, x2);
         const maxX = Math.max(x1, x2);
         const offset = Math.floor(this.corridorWidth / 2);
+
 
         for (let x = minX; x <= maxX; x++) {
             for (let dy = -offset; dy <= offset; dy++) {
@@ -153,6 +162,7 @@ class ServerMapGenerator {
         }
     }
 
+
     /**
      * Crea un pasillo vertical con el ancho configurado
      */
@@ -160,6 +170,7 @@ class ServerMapGenerator {
         const minY = Math.min(y1, y2);
         const maxY = Math.max(y1, y2);
         const offset = Math.floor(this.corridorWidth / 2);
+
 
         for (let y = minY; y <= maxY; y++) {
             for (let dx = -offset; dx <= offset; dx++) {
@@ -171,73 +182,78 @@ class ServerMapGenerator {
         }
     }
 
+
     /**
      * Obtiene el punto de spawn (centro de la primera sala)
-     * *** LÓGICA DE FALLBACK MEJORADA ***
+     * CORREGIDO: Ahora busca activamente la primera celda abierta
+     * si la sala[0] por algún casual no existe.
      */
     getSpawnPoint() {
         if (this.rooms.length > 0) {
             const room = this.rooms[0];
-            const gridX = Math.floor(room.x + room.w / 2);
-            const gridY = Math.floor(room.y + room.h / 2);
-
-            // Comprobación de seguridad: ¿es transitable?
-            if (this.map[gridY] && this.map[gridY][gridX] === 0) {
-                return this.gridToWorld(gridX, gridY);
-            }
-            // Si el centro de la sala 0 falla, se usará el fallback de abajo
+            return {
+                x: (room.x + room.w / 2) * this.cellSize,
+                y: (room.y + room.h / 2) * this.cellSize
+            };
         }
-
-        // --- NUEVO FALLBACK SEGURO ---
-        // Si no hay salas o la sala 0 es extraña,
-        // busca la PRIMERA celda transitable que encuentre.
-        console.warn("[MapGen] No se pudo encontrar el centro de la Sala 0. Buscando primera celda transitable...");
-        for (let y = 1; y < this.gridSize - 1; y++) {
-            for (let x = 1; x < this.gridSize - 1; x++) {
-                if (this.map[y][x] === 0) { // 0 = transitable
-                    return this.gridToWorld(x, y);
+        
+        // Fallback: Buscar la PRIMERA celda abierta (0)
+        for (let y = 0; y < this.gridSize; y++) {
+            for (let x = 0; x < this.gridSize; x++) {
+                if (this.map[y][x] === 0) {
+                    return {
+                        x: x * this.cellSize + this.cellSize / 2,
+                        y: y * this.cellSize + this.cellSize / 2
+                    };
                 }
             }
         }
 
-        // Fallback de último recurso (si el mapa está completamente sólido)
-        console.error("[MapGen] ¡No se encontró NINGUNA celda transitable!");
-        return { x: this.cellSize, y: this.cellSize }; // (1,1) en coords del mundo
+        // Si todo falla (mapa sólido?)
+        const center = Math.floor(this.gridSize / 2);
+        return {
+            x: center * this.cellSize + this.cellSize / 2,
+            y: center * this.cellSize + this.cellSize / 2
+        };
     }
+
 
     /**
      * Obtiene una posición aleatoria en una celda abierta
      */
     getRandomOpenCellPosition() {
         // Intentar primero obtener una posición de una sala aleatoria
-        // (Evitar la sala 0, que es la del jugador)
-        if (this.rooms.length > 1) {
-            const roomIndex = 1 + Math.floor(Math.random() * (this.rooms.length - 1));
-            const room = this.rooms[roomIndex];
+        if (this.rooms.length > 0 && Math.random() < 0.7) {
+            const room = this.rooms[Math.floor(Math.random() * this.rooms.length)];
             const x = room.x + 1 + Math.floor(Math.random() * (room.w - 2));
             const y = room.y + 1 + Math.floor(Math.random() * (room.h - 2));
-
+            
             if (this.map[y][x] === 0) {
-                return this.gridToWorld(x, y);
+                return {
+                    x: x * this.cellSize + this.cellSize / 2,
+                    y: y * this.cellSize + this.cellSize / 2
+                };
             }
         }
-
+        
         // Si falla, buscar cualquier celda abierta
         let attempts = 0;
         const maxAttempts = 100;
-
+        
         while (attempts < maxAttempts) {
             const x = Math.floor(Math.random() * this.gridSize);
             const y = Math.floor(Math.random() * this.gridSize);
-
+            
             if (this.map[y][x] === 0) {
-                return this.gridToWorld(x, y);
+                return {
+                    x: x * this.cellSize + this.cellSize / 2,
+                    y: y * this.cellSize + this.cellSize / 2
+                };
             }
             attempts++;
         }
-
-        // Fallback: getSpawnPoint() ahora es seguro
-        return this.getSpawnPoint();
+        
+        return this.getSpawnPoint(); // Fallback
     }
 
 
@@ -247,6 +263,15 @@ class ServerMapGenerator {
      */
     getNavigationGrid() {
         return this.map.map(row => [...row]);
+    }
+
+    /**
+     * NUEVO: Comprueba si una celda de la cuadrícula es válida y transitable.
+     */
+    isValid(x, y) {
+        return x >= 0 && x < this.gridSize &&
+               y >= 0 && y < this.gridSize &&
+               this.map[y][x] === 0; // 0 = transitable
     }
 
 
@@ -271,5 +296,6 @@ class ServerMapGenerator {
         };
     }
 }
+
 
 module.exports = ServerMapGenerator;

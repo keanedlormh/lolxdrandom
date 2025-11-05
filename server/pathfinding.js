@@ -1,160 +1,79 @@
 /**
- * server/pathfinding.js - ACTUALIZADO
- * - Desactivado el movimiento diagonal en 'getNeighbors' para forzar rutas "Manhattan".
- * - Simplificado el 'moveCost' en 'findPath' ya que ahora siempre es 1.
+ * server/pathfinding.js - REDISEÑADO CON BFS
+ * Este archivo ya NO usa A*. Ahora genera un mapa de costes (flow field)
+ * usando una Búsqueda de Rango Amplio (BFS) desde la posición del jugador.
+ * Los zombies usarán este mapa para moverse siempre hacia la celda
+ * con el coste más bajo (más cercana al jugador).
  */
 
-class PriorityQueue {
-    constructor() {
-        this.items = [];
-    }
-
-    enqueue(item, priority) {
-        this.items.push({ item, priority });
-        this.items.sort((a, b) => a.priority - b.priority);
-    }
-
-    dequeue() {
-        return this.items.shift()?.item;
-    }
-
-    isEmpty() {
-        return this.items.length === 0;
-    }
-}
-
 class Pathfinder {
-    constructor(grid, cellSize) {
-        this.grid = grid; // Matriz de navegación (0 = libre, 1 = muro)
+    constructor(navigationGrid, cellSize) {
+        this.grid = navigationGrid; // Matriz de navegación (0 = libre, 1 = muro)
         this.cellSize = cellSize;
-        this.rows = grid.length;
-        this.cols = grid[0].length;
-    }
-
-    /**
-     * Calcula la distancia Manhattan entre dos puntos
-     */
-    heuristic(a, b) {
-        return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-    }
-
-    /**
-     * Obtiene los vecinos válidos de una celda
-     * *** DIAGONALES DESACTIVADAS ***
-     */
-    getNeighbors(node) {
-        const neighbors = [];
-        const directions = [
+        this.rows = navigationGrid.length;
+        this.cols = navigationGrid[0].length;
+        
+        // Direcciones (4-way) para BFS y movimiento
+        this.directions = [
             { x: 0, y: -1 },  // Arriba
             { x: 1, y: 0 },   // Derecha
             { x: 0, y: 1 },   // Abajo
             { x: -1, y: 0 }   // Izquierda
-            // Diagonales (desactivadas para evitar "zigzag")
-            /*
-            { x: 1, y: -1 },  // Arriba-Derecha
-            { x: 1, y: 1 },   // Abajo-Derecha
-            { x: -1, y: 1 },  // Abajo-Izquierda
-            { x: -1, y: -1 }  // Arriba-Izquierda
-            */
         ];
-
-        for (const dir of directions) {
-            const newX = node.x + dir.x;
-            const newY = node.y + dir.y;
-
-            // Verificar límites y transitabilidad
-            if (newX >= 0 && newX < this.cols && newY >= 0 && newY < this.rows && this.grid[newY][newX] === 0) {
-                neighbors.push({ x: newX, y: newY });
-            }
-        }
-
-        return neighbors;
     }
 
     /**
-     * Algoritmo A* para encontrar el camino más corto
+     * Comprueba si una celda de la cuadrícula es válida y transitable.
      */
-    findPath(start, goal) {
-        if (!this.isValid(start) || !this.isValid(goal)) {
-            return null;
+    isValid(x, y) {
+        return x >= 0 && x < this.cols &&
+               y >= 0 && y < this.rows &&
+               this.grid[y][x] === 0; // 0 = transitable
+    }
+
+    /**
+     * Genera un mapa de costes (distancia) desde la posición de un jugador.
+     * @param {Object} playerGridPos - Posición del jugador {x, y} en la cuadrícula.
+     * @returns {Array} - Un mapa 2D (Array de Arrays) donde cada celda
+     * contiene la distancia al jugador, o Infinity si es inalcanzable.
+     */
+    generatePlayerCostMap(playerGridPos) {
+        // 1. Inicializar el mapa de costes con Infinito
+        const costMap = Array(this.rows).fill(0).map(() => Array(this.cols).fill(Infinity));
+        
+        // 2. Inicializar la cola (queue) para el BFS
+        const queue = [];
+
+        // 3. Empezar el BFS desde la posición del jugador
+        if (this.isValid(playerGridPos.x, playerGridPos.y)) {
+            costMap[playerGridPos.y][playerGridPos.x] = 0;
+            queue.push(playerGridPos);
+        } else {
+            // Si el jugador está en un muro (error?), no podemos generar el mapa
+            return costMap;
         }
-        if (start.x === goal.x && start.y === goal.y) {
-            return [start];
-        }
 
-        const openSet = new PriorityQueue();
-        const closedSet = new Set();
-        const cameFrom = new Map();
-        const gScore = new Map();
-        const fScore = new Map();
+        // 4. Procesar la cola (BFS)
+        let head = 0;
+        while (head < queue.length) {
+            const current = queue[head++];
+            const currentCost = costMap[current.y][current.x];
 
-        const startKey = `${start.x},${start.y}`;
-        const goalKey = `${goal.x},${goal.y}`;
+            // Explorar los 4 vecinos
+            for (const dir of this.directions) {
+                const newX = current.x + dir.x;
+                const newY = current.y + dir.y;
 
-        gScore.set(startKey, 0);
-        fScore.set(startKey, this.heuristic(start, goal));
-        openSet.enqueue(start, fScore.get(startKey));
-
-        let iterations = 0;
-        const maxIterations = 1000; 
-
-        while (!openSet.isEmpty() && iterations < maxIterations) {
-            iterations++;
-            const current = openSet.dequeue();
-            const currentKey = `${current.x},${current.y}`;
-
-            if (currentKey === goalKey) {
-                return this.reconstructPath(cameFrom, current);
-            }
-
-            closedSet.add(currentKey);
-
-            const neighbors = this.getNeighbors(current);
-            for (const neighbor of neighbors) {
-                const neighborKey = `${neighbor.x},${neighbor.y}`;
-
-                if (closedSet.has(neighborKey)) {
-                    continue;
-                }
-
-                // *** COSTE SIMPLIFICADO: Siempre 1 (no hay diagonales) ***
-                const moveCost = 1;
-                const tentativeGScore = gScore.get(currentKey) + moveCost;
-
-                if (!gScore.has(neighborKey) || tentativeGScore < gScore.get(neighborKey)) {
-                    cameFrom.set(neighborKey, current);
-                    gScore.set(neighborKey, tentativeGScore);
-                    fScore.set(neighborKey, tentativeGScore + this.heuristic(neighbor, goal));
-                    openSet.enqueue(neighbor, fScore.get(neighborKey));
+                // Si el vecino es válido Y no ha sido visitado (coste es Infinity)
+                if (this.isValid(newX, newY) && costMap[newY][newX] === Infinity) {
+                    // Asignar el nuevo coste y añadirlo a la cola
+                    costMap[newY][newX] = currentCost + 1;
+                    queue.push({ x: newX, y: newY });
                 }
             }
         }
-        return null; // No se encontró camino
-    }
-
-    /**
-     * Reconstruye el camino desde el objetivo hasta el inicio
-     */
-    reconstructPath(cameFrom, current) {
-        const path = [current];
-        let currentKey = `${current.x},${current.y}`;
-
-        while (cameFrom.has(currentKey)) {
-            current = cameFrom.get(currentKey);
-            path.unshift(current);
-            currentKey = `${current.x},${current.y}`;
-        }
-        return path;
-    }
-
-    /**
-     * Verifica si una posición es válida y transitable
-     */
-    isValid(pos) {
-        if (!pos) return false;
-        return pos.x >= 0 && pos.x < this.cols &&
-               pos.y >= 0 && pos.y < this.rows &&
-               this.grid[pos.y][pos.x] === 0;
+        
+        return costMap;
     }
 }
 

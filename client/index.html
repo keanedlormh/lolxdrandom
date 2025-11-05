@@ -4,430 +4,411 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zombie Shooter Multijugador</title>
-    <!-- Importar fuentes: Título Gótico, UI Nítida -->
+
+    <!-- Fuente de Google 'Chakra Petch' para un look tech -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;700&display=swap" rel="stylesheet">
+
     <style>
-        /* CSS variables para la paleta gótica */
-        :root {
-            --color-negro: #000000;
-            --color-gris-oscuro: #1a1a1a;
-            --color-gris-claro: #aaaaaa;
-            --color-plata: #c0c0c0;
-            --color-rojo-sangre: #800000; /* Granate/Rojo oscuro */
-            --color-rojo-brillo: #ff0000;
-            --color-violeta: #4D0026; /* Violeta oscuro */
-            --color-violeta-brillo: #99004C;
-        }
-
-
+        /* --- ESTILOS GLOBALES --- */
         body, html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
             overflow: hidden;
-            /* Fondo negro con viñeta sutil y textura de líneas */
-            background-color: var(--color-negro);
-            background-image: 
-                radial-gradient(circle at center, rgba(34, 34, 34, 0.5) 0%, var(--color-negro) 60%),
-                repeating-linear-gradient(
-                    0deg,
-                    rgba(10, 10, 10, 0.3) 0px,
-                    rgba(10, 10, 10, 0.3) 1px,
-                    transparent 1px,
-                    transparent 3px
-                );
-            color: var(--color-gris-claro);
-            /* Fuente base para UI */
-            font-family: 'Exo 2', sans-serif;
-            font-weight: 300;
+            /* Fondo con gradiente radial para más profundidad */
+            background: radial-gradient(ellipse at center, #3a3a3a 0%, #1a1a1a 100%);
+            color: #eee;
+            font-family: 'Chakra Petch', sans-serif; /* Nueva fuente */
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 16px;
         }
 
-
-        canvas {
-            display: block;
-            border: 2px solid var(--color-gris-oscuro);
-            background-color: #0a0a0a; 
-            cursor: crosshair;
-        }
-
-
+        /* --- ESTILOS DE MENÚS --- */
         .menu-container {
             position: absolute;
-            /* Fondo de vidrio oscuro */
-            background-color: rgba(10, 10, 10, 0.75);
+            /* Efecto "Glass" oscuro */
+            background-color: rgba(10, 10, 10, 0.85);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
-            
+            /* Borde y sombra "Biohazard" */
+            border: 1px solid #4CAF50;
+            border-radius: 10px;
+            box-shadow: 0 0 25px rgba(76, 175, 80, 0.3);
+
             padding: 30px;
-            border-radius: 8px;
-            border: 1px solid #2a2a2a;
-            
-            /* Sombra Gótica: Rojo sangre y Violeta */
-            box-shadow: 
-                0 0 15px rgba(var(--color-violeta), 0.5),
-                0 0 25px rgba(var(--color-rojo-sangre), 0.4),
-                inset 0 0 10px rgba(0,0,0,0.3);
-            
+
+            /* --- MEJORAS DE RESPONSIVE --- */
+            display: flex;            /* Forzar layout en columna */
+            flex-direction: column;   /* Apilado vertical */
+            align-items: stretch;     /* Estirar elementos al 100% de ancho */
+            /* --------------------------- */
+
             max-width: 500px;
-            max-height: 95vh;
+            max-height: 90vh;
             width: 90%;
             z-index: 1000;
             overflow-y: auto;
-            
-            /* Forzar apilamiento vertical (bueno para móvil) */
-            display: flex;
-            flex-direction: column;
+            box-sizing: border-box; /* Asegura que el padding se incluya en el width */
         }
 
-
-        /* Título Gótico */
-        h2 {
-            font-family: 'Cinzel Decorative', cursive;
-            color: var(--color-plata);
-            /* Sombra de texto brillante */
-            text-shadow: 
-                0 0 4px var(--color-plata),
-                0 0 10px var(--color-rojo-brillo),
-                0 0 18px var(--color-rojo-sangre);
-            font-size: 2.5rem;
-            text-align: center;
+        /* Títulos de Menú */
+        .menu-container h2 {
+            font-size: 2.5em;
+            color: #4CAF50;
+            text-transform: uppercase;
+            letter-spacing: 3px;
             margin-top: 0;
             margin-bottom: 25px;
-            font-weight: 700;
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+            text-align: center; /* Asegurar centrado en el layout flex */
         }
 
-
-        h3 {
-            font-family: 'Exo 2', sans-serif;
-            font-weight: 400;
-            color: var(--color-plata);
-            border-bottom: 1px dashed var(--color-rojo-sangre);
-            padding-bottom: 5px;
+        /* Separadores */
+        hr {
+            border: 0;
+            border-top: 1px solid #444;
+            margin: 20px 0;
+            width: 100%; /* Asegurar que ocupe todo el ancho */
         }
 
-
-        input, button, select {
-            padding: 12px 15px;
+        /* --- ESTILOS DE INPUTS Y BOTONES --- */
+        input[type="text"], input[type="number"], select {
+            padding: 12px;
             margin: 8px 0;
             border-radius: 5px;
             width: 100%;
             box-sizing: border-box;
-            font-weight: 400;
-            font-family: 'Exo 2', sans-serif;
-            font-size: 1rem;
-            transition: all 0.3s ease;
+            background-color: #222;
+            border: 1px solid #555;
+            color: #eee;
+            font-family: 'Chakra Petch', sans-serif;
+            font-weight: 700;
+            font-size: 1.1em;
+            transition: border-color 0.3s, box-shadow 0.3s;
         }
 
-
-        /* Inputs y Selects */
-        input, select {
-            background-color: rgba(0, 0, 0, 0.5);
-            border: 1px solid #333;
-            color: var(--color-gris-claro);
-        }
-        input:focus, select:focus {
+        /* Efecto de Foco en Inputs */
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            border-color: #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
             outline: none;
-            border-color: var(--color-rojo-sangre);
-            box-shadow: 0 0 10px rgba(var(--color-rojo-sangre), 0.7);
-        }
-        select option {
-            background-color: var(--color-gris-oscuro);
-            color: var(--color-gris-claro);
         }
 
-
-        /* Botones Góticos */
         button {
-            background-color: transparent;
-            color: var(--color-gris-claro);
-            cursor: pointer;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 5px;
+            border: none;
+            width: 100%;
+            box-sizing: border-box;
+            font-family: 'Chakra Petch', sans-serif;
+            font-weight: 700;
+            font-size: 1.1em;
             text-transform: uppercase;
             letter-spacing: 1px;
-            font-weight: 600;
-
-
-            /* Borde con gradiente */
-            border-style: solid;
-            border-width: 2px;
-            border-image-slice: 1;
-            border-image-source: linear-gradient(to right, var(--color-rojo-sangre), var(--color-violeta));
+            color: white;
+            cursor: pointer;
+            /* Sutil efecto 3D */
+            box-shadow: 0 4px 0px rgba(0, 0, 0, 0.3);
+            transition: background-color 0.3s, transform 0.1s, box-shadow 0.3s;
         }
 
-
+        /* Efectos de Botón */
         button:hover:not(:disabled) {
-            /* Relleno de sangre al pasar el ratón */
-            background-color: rgba(128, 0, 0, 0.3);
-            color: #fff;
-            border-image: none; /* Quitar gradiente */
-            border-color: var(--color-rojo-brillo);
-            box-shadow: 0 0 15px rgba(var(--color-rojo-brillo), 0.5);
+            transform: translateY(-2px); /* Elevar */
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
         }
 
+        button:active:not(:disabled) {
+            transform: translateY(1px); /* Pulsar */
+            box-shadow: 0 2px 0px rgba(0, 0, 0, 0.3);
+        }
 
         button:disabled {
-            background-color: transparent;
-            border-image: none;
-            border-color: #222;
-            color: #444;
+            background-color: #555;
             cursor: not-allowed;
-            box-shadow: none;
+            opacity: 0.7;
+        }
+
+        /* Colores Específicos de Botones */
+        #createGameButton { background-color: #4CAF50; }
+        #createGameButton:hover:not(:disabled) { background-color: #5cc460; }
+
+        /* Botón de Buscar Partidas */
+        #browseGamesButton { background-color: #4CAF50; }
+        #browseGamesButton:hover:not(:disabled) { background-color: #5cc460; }
+
+        #joinGameButton, #settingsButton, #saveSettingsButton, #backToMenuButton { 
+            background-color: #336699; 
+        }
+        #joinGameButton:hover:not(:disabled), #settingsButton:hover:not(:disabled),
+        #saveSettingsButton:hover:not(:disabled), #backToMenuButton:hover:not(:disabled) { 
+            background-color: #3e7ab8; 
+        }
+
+        #resetSettingsButton { background-color: #993333; }
+        #resetSettingsButton:hover:not(:disabled) { background-color: #b33e3e; }
+
+
+        /* --- PANTALLA DE JUEGO --- */
+        #gameCanvas {
+            display: block;
+            /* Borde y sombra a juego con la UI */
+            border: 2px solid #4CAF50;
+            background-color: #1a1a1a; 
+            cursor: crosshair;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
         }
 
 
-        /* Botón de Crear Partida (Principal) */
-        #createGameButton {
-            background-color: rgba(77, 0, 38, 0.2); /* Tinte violeta */
-            border-image-source: linear-gradient(to right, var(--color-violeta-brillo), var(--color-rojo-sangre));
-        }
-        #createGameButton:hover:not(:disabled) {
-            background-color: rgba(77, 0, 38, 0.6);
-            border-color: var(--color-violeta-brillo);
-            box-shadow: 0 0 15px rgba(var(--color-violeta-brillo), 0.6);
-        }
-
-
-        /* Botones de Volver/Resetear (Secundarios/Peligro) */
-        #backToMenuButton, #resetSettingsButton, #backToMenuFromRoomListButton {
-            background-color: transparent;
-            border-image-source: linear-gradient(to right, #444, #222);
-        }
-        #backToMenuButton:hover:not(:disabled), 
-        #resetSettingsButton:hover:not(:disabled),
-        #backToMenuFromRoomListButton:hover:not(:disabled) {
-             /* Usar el hover de sangre estándar */
-            background-color: rgba(128, 0, 0, 0.3);
-            color: #fff;
-            border-image: none;
-            border-color: var(--color-rojo-brillo);
-            box-shadow: 0 0 15px rgba(var(--color-rojo-brillo), 0.5);
-        }
-
-
-        /* Separador */
-        hr {
-            border: none;
-            height: 1px;
-            background-color: #333;
-            box-shadow: 0 0 5px rgba(var(--color-rojo-sangre), 0.3);
-            margin: 20px 0;
-        }
-
-
-        /* --- Pantallas Específicas --- */
-
-
-        /* Lista de Jugadores (Lobby) */
+        /* --- LOBBY --- */
         #lobbyPlayerList {
             list-style: none;
-            padding: 0;
+            padding: 10px;
             margin-top: 15px;
             text-align: left;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            min-height: 100px;
         }
+
         #lobbyPlayerList li {
             padding: 8px 5px;
-            border-bottom: 1px dashed #333;
-            font-size: 1.1rem;
+            border-bottom: 1px dashed #444;
+            font-size: 1.1em;
+        }
+        #lobbyPlayerList li:last-child {
+            border-bottom: none;
         }
 
+        #lobbyRoomId {
+            font-weight: 700;
+            font-size: 1.2em;
+            color: #eee;
+            text-align: center; /* Asegurar centrado */
+        }
 
-        /* Resumen de Configuración (Lobby) */
-        #configSummary {
-            font-size: 0.8rem;
-            color: var(--color-gris-claro);
-            background-color: rgba(0,0,0,0.3);
+        #hostConfigInfo {
+            margin: 15px 0;
             padding: 10px;
-            border-radius: 4px;
-            border-left: 3px solid var(--color-violeta);
+            background-color: rgba(76, 175, 80, 0.2);
+            border: 1px solid rgba(76, 175, 80, 0.4);
+            border-radius: 5px;
+            font-size: 12px;
+            text-align: left;
         }
 
-
-        /* Grupo de Ajustes (Configuración) */
+        /* --- PANTALLA DE AJUSTES --- */
         .settings-group {
             margin: 15px 0;
             padding: 15px;
             background-color: rgba(0, 0, 0, 0.2);
-            border: 1px solid #222;
             border-radius: 5px;
             text-align: left;
         }
+        .settings-group h3 {
+            margin-top: 0;
+            color: #4CAF50;
+            font-size: 16px;
+            text-transform: uppercase;
+        }
         .setting-item {
-            margin: 15px 0;
+            margin: 10px 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         .setting-item label {
             flex: 1;
-            font-size: 0.95rem;
+            font-size: 14px;
         }
         .setting-item input[type="number"],
         .setting-item select {
-            width: 80px;
-            padding: 5px;
+            width: 90px;
+            padding: 8px;
             margin: 0;
+            font-size: 1em;
+        }
+        /* Corregir ancho del select de control */
+        #setting_controlType {
+            width: 150px;
         }
 
-
-        /* Presets de Dificultad */
-        .preset-buttons { display: flex; gap: 10px; }
-        .preset-buttons button { flex: 1; font-size: 0.8rem; padding: 8px; }
-        /* Colores específicos para presets (sobreescriben el gradiente) */
-        .preset-buttons button[style*="#4CAF50"] { border-color: #4CAF50; }
-        .preset-buttons button[style*="#FF9800"] { border-color: #FF9800; }
-        .preset-buttons button[style*="#F44336"] { border-color: #F44336; }
-        .preset-buttons button:hover {
-            background-color: rgba(255,255,255,0.1);
-            box-shadow: none;
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .preset-buttons button {
+            font-size: 1em;
+            padding: 10px;
         }
 
+        /* --- ESTILOS PARA LA LISTA DE SALAS (NUEVO) --- */
+        #roomListContainer {
+            width: 100%;
+            min-height: 200px;
+            max-height: 40vh;
+            overflow-y: auto;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            border: 1px solid #333;
+            margin-bottom: 15px;
+        }
 
-        /* Buscador de Salas */
         .room-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 5px;
-            border-bottom: 1px dashed #333;
-            transition: background-color 0.2s ease;
+            padding: 12px 15px;
+            border-bottom: 1px dashed #444;
+            cursor: pointer;
+            transition: background-color 0.2s;
         }
+
         .room-item:hover {
-            background-color: rgba(var(--color-rojo-sangre), 0.1);
+            background-color: rgba(76, 175, 80, 0.3);
         }
-        .room-info { display: flex; flex-direction: column; }
-        .room-info strong { 
-            font-size: 1.1rem; 
-            color: var(--color-plata); 
-            letter-spacing: 0.5px;
+
+        .room-item:last-child {
+            border-bottom: none;
         }
-        .room-info span { font-size: 0.85rem; color: #888; }
-        
+
+        .room-info {
+            text-align: left;
+        }
+
+        .room-info strong {
+            font-size: 1.2em;
+            color: #eee;
+        }
+
+        .room-info span {
+            font-size: 0.9em;
+            color: #aaa;
+            display: block;
+        }
+
         .room-join-button {
-            width: auto;
-            padding: 6px 12px;
-            font-size: 0.8rem;
-            margin: 0;
+            padding: 8px 12px;
+            font-size: 0.9em;
+            margin: 0; /* Override button defaults */
+            width: auto; /* Override button defaults */
+            background-color: #4CAF50;
+        }
+
+        .room-list-actions {
+            display: flex;
+            gap: 10px;
         }
 
 
-        /* Ajustes para Móvil */
+        /* --- MEDIA QUERY PARA MÓVILES --- */
         @media (max-width: 600px) {
             .menu-container {
-                padding: 20px;
-                width: 90%;
+                padding: 20px; /* Reducir padding */
+                width: 95%;   /* Usar casi todo el ancho */
             }
-            h2 {
-                font-size: 2rem;
+
+            .menu-container h2 {
+                font-size: 1.8em; /* Reducir título */
+                margin-bottom: 20px;
             }
-            input, button, select {
-                padding: 12px;
-                font-size: 0.95rem;
+
+            button, input[type="text"], input[type="number"], select {
+                padding: 10px; /* Reducir padding de botones/inputs */
+                font-size: 1em;
             }
+
+            .preset-buttons {
+                grid-template-columns: 1fr; /* Apilar botones de presets */
+            }
+
             .setting-item {
-                flex-direction: column;
+                flex-direction: column; /* Apilar items de ajustes */
                 align-items: flex-start;
-                gap: 8px;
             }
             .setting-item label {
-                font-size: 0.9rem;
+                margin-bottom: 5px;
             }
             .setting-item input[type="number"],
             .setting-item select {
+                width: 100%; /* Ancho completo para inputs */
+            }
+            /* Corregir ancho del select en móvil */
+            #setting_controlType {
                 width: 100%;
             }
-            .preset-buttons button {
-                font-size: 0.75rem;
+
+            /* Estilos de lista de salas en móvil */
+            .room-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .room-join-button {
+                width: 100%;
             }
         }
-
 
     </style>
 </head>
 <body>
 
-
+    <!-- Pantalla del Juego (Lienzo) -->
     <div id="gameScreen">
         <canvas id="gameCanvas"></canvas>
     </div>
-
 
     <!-- Pantalla de Menú Principal -->
     <div id="menuScreen" class="menu-container">
         <h2>Zombie Shooter</h2>
 
+        <input type="text" id="playerNameInput" placeholder="INTRODUCE TU NOMBRE" maxlength="15" value="Player1">
 
-        <input type="text" id="playerNameInput" placeholder="Introduce tu nombre" maxlength="15" value="Player1">
-        
         <hr>
-
 
         <button id="createGameButton">Crear Partida</button>
-        <button id="browseGamesButton">Buscar Partidas</button>
-
-
-        <div style="display: flex; align-items: center; gap: 10px; margin: 8px 0;">
-            <input type="text" id="roomIdInput" placeholder="UNIRSE POR ID (EJ: ABCD)" maxlength="4" style="text-transform: uppercase; margin: 0;">
-            <button id="joinGameButton" style="width: auto; padding: 12px; margin: 0; flex-shrink: 0;">Unirse</button>
-        </div>
-
+        <button id="browseGamesButton">Buscar Partidas</button> <!-- Botón Actualizado -->
 
         <hr>
 
+        <input type="text" id="roomIdInput" placeholder="UNIRSE POR ID (EJ: ABCD)" maxlength="4" style="text-transform: uppercase;">
+        <button id="joinGameButton">Unirse por ID</button> <!-- Botón Actualizado -->
 
-        <button id="settingsButton" style="background-color: transparent; border-image: linear-gradient(to right, #444, #222);">
-            ⚙️ Configuración
-        </button>
+        <hr>
+
+        <button id="settingsButton">⚙️ Configuración</button>
     </div>
 
-
-    <!-- Pantalla de Buscador de Salas -->
-    <div id="roomListScreen" class="menu-container" style="display: none;">
-        <h2>Salas Activas</h2>
-        
-        <div id="roomListContainer" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px; background-color: rgba(0,0,0,0.2); border-radius: 5px;">
-            <!-- La lista de salas se genera aquí por JS -->
-            <p style="padding: 20px; color: #aaa; text-align: center;">Buscando salas...</p>
-        </div>
-
-
-        <button id="refreshRoomListButton">Refrescar Lista</button>
-        <button id="backToMenuFromRoomListButton">Volver al Menú</button>
-    </div>
-
-
-    <!-- Pantalla de Configuración -->
+    <!-- Pantalla de Ajustes -->
     <div id="settingsScreen" class="menu-container" style="display: none;">
         <h2>⚙️ Configuración</h2>
 
-
         <div class="preset-buttons">
-            <button onclick="applyPreset('easy')" style="background-color: transparent; border-color: #4CAF50;">Fácil</button>
-            <button onclick="applyPreset('normal')" style="background-color: transparent; border-color: #FF9800;">Normal</button>
-            <button onclick="applyPreset('hard')" style="background-color: transparent; border-color: #F44336;">Difícil</button>
+            <button onclick="applyPreset('easy')" style="background-color: #4CAF50;">Fácil</button>
+            <button onclick="applyPreset('normal')" style="background-color: #FF9800;">Normal</button>
+            <button onclick="applyPreset('hard')" style="background-color: #F44336;">Difícil</button>
         </div>
 
-
         <div class="settings-group">
-            <h3>🎮 Controles</h3>
+            <h3>🎮 Jugador</h3>
+
+            <!-- NUEVA OPCIÓN DE CONTROL -->
             <div class="setting-item">
-                <label>Tipo de Control:</label>
+                <label>Método de Control:</label>
                 <select id="setting_controlType">
                     <option value="auto">Automático</option>
                     <option value="touch">Joystick Táctil</option>
                     <option value="keyboard">Teclado/Ratón</option>
                 </select>
             </div>
-        </div>
 
-
-        <div class="settings-group">
-            <h3>jugador</h3>
             <div class="setting-item">
                 <label>Vida Máxima:</label>
                 <input type="number" id="setting_playerHealth" min="50" max="300" value="100">
@@ -441,7 +422,6 @@
                 <input type="number" id="setting_shootCooldown" min="50" max="500" value="150" step="10">
             </div>
         </div>
-
 
         <div class="settings-group">
             <h3>🧟 Zombies</h3>
@@ -463,7 +443,6 @@
             </div>
         </div>
 
-
         <div class="settings-group">
             <h3>💥 Combate</h3>
             <div class="setting-item">
@@ -475,7 +454,6 @@
                 <input type="number" id="setting_bulletSpeed" min="10" max="40" value="25">
             </div>
         </div>
-
 
         <div class="settings-group">
             <h3>🗺️ Mapa</h3>
@@ -501,7 +479,6 @@
             </div>
         </div>
 
-
         <div class="settings-group">
             <h3>🌊 Oleadas</h3>
             <div class="setting-item">
@@ -514,56 +491,59 @@
             </div>
         </div>
 
-
         <hr>
-
 
         <button id="saveSettingsButton">💾 Guardar y Volver</button>
         <button id="resetSettingsButton">↺ Restaurar Defaults</button>
     </div>
 
-
-    <!-- Pantalla de Lobby -->
+    <!-- Pantalla de Lobby (Sala de Espera) -->
     <div id="lobbyScreen" class="menu-container" style="display: none;">
         <h2>Sala de Espera</h2>
-        <p id="lobbyRoomId" style="font-weight: bold; color: var(--color-plata); letter-spacing: 2px;"></p>
-
+        <p id="lobbyRoomId"></p>
 
         <h3>Jugadores:</h3>
         <ul id="lobbyPlayerList"></ul>
 
-
-        <div id="hostConfigInfo" style="display: none; margin: 15px 0;">
+        <div id="hostConfigInfo" style="display: none;">
             <strong>⚙️ Configuración Activa:</strong>
-            <div id="configSummary"></div>
+            <div id="configSummary" style="margin-top: 5px;"></div>
         </div>
 
-
         <hr>
-
 
         <button id="startButton">Iniciar Partida</button>
         <button id="backToMenuButton">Volver al Menú</button>
     </div>
 
+    <!-- PANTALLA DE BUSCADOR DE SALAS (NUEVA) -->
+    <div id="roomListScreen" class="menu-container" style="display: none;">
+        <h2>Salas Activas</h2>
 
-    <!-- Pantalla de Game Over -->
-    <div id="gameOverScreen" class="menu-container" style="display: none;">
-        <h2 style="color: var(--color-rojo-sangre); text-shadow: 0 0 10px var(--color-rojo-sangre);">¡HAS MUERTO!</h2>
-        <p>Puntuación Final: <span id="finalScore" style="font-weight: bold; color: var(--color-plata);">0</span></p>
-        <p>Oleada Alcanzada: <span id="finalWave" style="font-weight: bold; color: var(--color-plata);">1</span></p>
+        <div id="roomListContainer">
+            <!-- Las salas se inyectarán aquí (ej: <p>Buscando...</p>) -->
+        </div>
 
-
-        <button onclick="window.location.reload()">Jugar de Nuevo</button>
+        <div class="room-list-actions">
+            <button id="refreshRoomListButton" style="background-color: #336699; flex: 1;">Refrescar</button>
+            <button id="backToMenuFromRoomListButton" style="background-color: #993333; flex: 1;">Volver</button>
+        </div>
     </div>
 
 
+    <!-- Pantalla de Game Over -->
+    <div id="gameOverScreen" class="menu-container" style="display: none;">
+        <h2>¡GAME OVER!</h2>
+        <p>Puntuación Final: <span id="finalScore" style="font-weight: bold;">0</span></p>
+        <p>Oleada Alcanzada: <span id="finalWave" style="font-weight: bold;">1</span></p>
+
+        <button onclick="window.location.reload()" style="background-color: #336699;">Jugar de Nuevo</button>
+    </div>
+
+    <!-- Scripts del Juego -->
     <script src="/socket.io/socket.io.js"></script> 
     <script src="js/entities.js"></script>
-    <script src="js/game.js"></s cript>
-
+    <script src="js/game.js"></script>
 
 </body>
 </html>
-
-

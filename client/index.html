@@ -64,8 +64,6 @@
             50% { box-shadow: 0 0 20px var(--color-primario-sombra), 0 0 40px var(--color-primario-sombra), inset 0 0 20px rgba(255, 117, 24, 0.3); }
         }
 
-        /* Keyframe "scan-line" eliminado */
-
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-10px); }
@@ -94,8 +92,6 @@
             align-items: center;
             position: relative;
         }
-
-        /* Efecto "scan-line" (body::before) eliminado */
 
         /* --- ESTILOS DE MENÚS --- */
         .menu-container {
@@ -173,10 +169,10 @@
             box-shadow: 0 0 10px var(--color-acento-principal);
         }
 
-        /* Títulos para otros menús (Config, Lobby, etc.) - PEQUEÑO Y CENTRADO */
+        /* Títulos para otros menús (Config, Lobby, etc.) - TAMAÑO REDUCIDO */
         .menu-container h2 {
             font-family: var(--fuente-titulos);
-            font-size: 2.4em; /* Mucho más pequeño */
+            font-size: 2.0em; /* Reducido */
             font-weight: 700;
             color: var(--color-acento-principal); /* Naranja */
             letter-spacing: 3px;
@@ -251,7 +247,7 @@
 
         /* --- OPTIMIZACIÓN DE BOTONES --- */
         
-        /* Clase Base del Botón */
+        /* Clase Base del Botón (CORREGIDA) */
         .btn {
             padding: 14px;
             margin: 10px 0;
@@ -269,11 +265,10 @@
             clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
             transition: all 0.3s;
             
-            /* Solución de centrado vertical */
+            /* Solución de centrado vertical (SIN line-height: 1) */
             display: flex;
             align-items: center;
             justify-content: center;
-            line-height: 1; 
         }
 
         .btn-block {
@@ -470,7 +465,6 @@
             font-size: 0.9em; 
             padding: 12px;
         }
-        /* Estilos [onclick] eliminados */
 
         /* --- LISTA DE SALAS --- */
         #roomListContainer {
@@ -549,8 +543,6 @@
             gap: 15px;
         }
 
-        /* Estilo de Game Over eliminado, se usa .btn-secondary */
-
         #finalScore, #finalWave {
             color: var(--color-acento-principal);
             font-size: 1.3em; 
@@ -571,7 +563,7 @@
             }
             /* El h2 pequeño se ajusta */
             .menu-container h2 {
-                font-size: 2.0em;
+                font-size: 1.8em; /* Reducido */
             }
 
             .btn, input[type="text"], input[type="number"], select {
@@ -628,7 +620,7 @@
             }
             /* El h2 pequeño se ajusta */
             .menu-container h2 {
-                font-size: 1.8em;
+                font-size: 1.6em; /* Reducido */
                 margin-bottom: 10px;
             }
 
@@ -669,8 +661,7 @@
 <body>
 
     <!--
-        EL CUERPO HTML HA SIDO ACTUALIZADO
-        PARA USAR LAS CLASES DE BOTÓN OPTIMIZADAS
+        EL HTML SIGUE USANDO LAS CLASES OPTIMIZADAS
     -->
 
     <div id="gameScreen">
@@ -851,3 +842,5 @@
 
 </body>
 </html>
+
+

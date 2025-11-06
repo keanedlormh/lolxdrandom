@@ -5,12 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zombie Shooter Multijugador</title>
 
-    <!-- Fuente de Google 'Chakra Petch' para un look tech -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;700&family=MedievalSharp&display=swap" rel="stylesheet">
 
     <style>
+        /* --- COLORES DEL TEMA GÓTICO --- */
+        :root {
+            --color-fondo: #000000;
+            --color-fondo-secundario: #1a1a1a;
+            --color-menu: rgba(15, 10, 20, 0.9); /* Tinte violeta oscuro */
+            --color-texto: #E0E0E0;
+            
+            --color-primario: #673AB7;      /* Violeta (Morado Profundo) */
+            --color-primario-hover: #7E57C2;
+            --color-primario-tenue: rgba(103, 58, 183, 0.2);
+            --color-primario-borde: rgba(103, 58, 183, 0.5);
+
+            --color-destacado: #F44336;     /* Rojo (Sangre) */
+            --color-destacado-sombra: rgba(244, 67, 54, 0.6);
+
+            --color-peligro: #B71C1C;       /* Granate (Peligro/Volver) */
+            --color-peligro-hover: #D32F2F;
+            --color-peligro-borde: #8B0000; /* Borde del canvas */
+            --color-peligro-sombra: rgba(139, 0, 0, 0.4);
+
+            --color-secundario: #424242;   /* Gris Oscuro (Botones neutrales) */
+            --color-secundario-hover: #616161;
+
+            --fuente-titulos: 'MedievalSharp', cursive;
+            --fuente-cuerpo: 'EB Garamond', serif;
+        }
+
         /* --- ESTILOS GLOBALES --- */
         body, html {
             margin: 0;
@@ -18,10 +44,10 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            /* Fondo con gradiente radial para más profundidad */
-            background: radial-gradient(ellipse at center, #3a3a3a 0%, #1a1a1a 100%);
-            color: #eee;
-            font-family: 'Chakra Petch', sans-serif; /* Nueva fuente */
+            /* Fondo de negro a gris muy oscuro */
+            background: radial-gradient(ellipse at center, #2a2a2a 0%, var(--color-fondo) 100%);
+            color: var(--color-texto);
+            font-family: var(--fuente-cuerpo); /* Nueva fuente */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -30,101 +56,101 @@
         /* --- ESTILOS DE MENÚS --- */
         .menu-container {
             position: absolute;
-            /* Efecto "Glass" oscuro */
-            background-color: rgba(10, 10, 10, 0.85);
+            /* Efecto "Glass" oscuro con tinte violeta */
+            background-color: var(--color-menu);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
-            /* Borde y sombra "Biohazard" */
-            border: 1px solid #4CAF50;
-            border-radius: 10px;
-            box-shadow: 0 0 25px rgba(76, 175, 80, 0.3);
+            /* Borde y sombra violeta */
+            border: 1px solid var(--color-primario);
+            border-radius: 10px; /* Se mantiene para suavizar el contenedor */
+            box-shadow: 0 0 25px var(--color-primario-borde);
 
             padding: 30px;
 
-            /* --- MEJORAS DE RESPONSIVE --- */
-            display: flex;            /* Forzar layout en columna */
-            flex-direction: column;   /* Apilado vertical */
-            align-items: stretch;     /* Estirar elementos al 100% de ancho */
-            /* --------------------------- */
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
 
             max-width: 500px;
             max-height: 90vh;
             width: 90%;
             z-index: 1000;
             overflow-y: auto;
-            box-sizing: border-box; /* Asegura que el padding se incluya en el width */
+            box-sizing: border-box; 
         }
 
         /* Títulos de Menú */
         .menu-container h2 {
-            font-size: 2.5em;
-            color: #4CAF50;
-            text-transform: uppercase;
+            font-family: var(--fuente-titulos);
+            font-size: 3.5em; /* Más grande para la fuente gótica */
+            color: var(--color-destacado); /* Rojo sangre */
             letter-spacing: 3px;
             margin-top: 0;
             margin-bottom: 25px;
-            text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
-            text-align: center; /* Asegurar centrado en el layout flex */
+            text-shadow: 0 0 10px var(--color-destacado-sombra);
+            text-align: center;
+            text-transform: none; /* Quitamos uppercase */
         }
 
         /* Separadores */
         hr {
             border: 0;
-            border-top: 1px solid #444;
+            /* Borde violeta tenue */
+            border-top: 1px solid var(--color-primario);
+            opacity: 0.3;
             margin: 20px 0;
-            width: 100%; /* Asegurar que ocupe todo el ancho */
+            width: 100%;
         }
 
         /* --- ESTILOS DE INPUTS Y BOTONES --- */
         input[type="text"], input[type="number"], select {
             padding: 12px;
             margin: 8px 0;
-            border-radius: 5px;
+            border-radius: 2px; /* Más afilado */
             width: 100%;
             box-sizing: border-box;
             background-color: #222;
             border: 1px solid #555;
-            color: #eee;
-            font-family: 'Chakra Petch', sans-serif;
+            color: var(--color-texto);
+            font-family: var(--fuente-cuerpo);
             font-weight: 700;
-            font-size: 1.1em;
+            font-size: 1.2em; /* Fuente más grande */
             transition: border-color 0.3s, box-shadow 0.3s;
         }
 
-        /* Efecto de Foco en Inputs */
+        /* Efecto de Foco en Inputs (Violeta) */
         input[type="text"]:focus, input[type="number"]:focus, select:focus {
-            border-color: #4CAF50;
-            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+            border-color: var(--color-primario);
+            box-shadow: 0 0 10px var(--color-primario-borde);
             outline: none;
         }
 
         button {
             padding: 12px;
             margin: 8px 0;
-            border-radius: 5px;
+            border-radius: 2px; /* Más afilado */
             border: none;
             width: 100%;
             box-sizing: border-box;
-            font-family: 'Chakra Petch', sans-serif;
+            font-family: var(--fuente-cuerpo);
             font-weight: 700;
-            font-size: 1.1em;
-            text-transform: uppercase;
+            font-size: 1.2em; /* Fuente más grande */
+            text-transform: none; /* Quitamos uppercase */
             letter-spacing: 1px;
             color: white;
             cursor: pointer;
-            /* Sutil efecto 3D */
             box-shadow: 0 4px 0px rgba(0, 0, 0, 0.3);
             transition: background-color 0.3s, transform 0.1s, box-shadow 0.3s;
         }
 
         /* Efectos de Botón */
         button:hover:not(:disabled) {
-            transform: translateY(-2px); /* Elevar */
+            transform: translateY(-2px); 
             box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
         }
 
         button:active:not(:disabled) {
-            transform: translateY(1px); /* Pulsar */
+            transform: translateY(1px);
             box-shadow: 0 2px 0px rgba(0, 0, 0, 0.3);
         }
 
@@ -135,33 +161,43 @@
         }
 
         /* Colores Específicos de Botones */
-        #createGameButton { background-color: #4CAF50; }
-        #createGameButton:hover:not(:disabled) { background-color: #5cc460; }
-
-        /* Botón de Buscar Partidas */
-        #browseGamesButton { background-color: #4CAF50; }
-        #browseGamesButton:hover:not(:disabled) { background-color: #5cc460; }
-
-        #joinGameButton, #settingsButton, #saveSettingsButton, #backToMenuButton { 
-            background-color: #336699; 
+        
+        /* Acciones Principales (Violeta) */
+        #createGameButton, #browseGamesButton, #joinGameButton, #saveSettingsButton, #startButton { 
+            background-color: var(--color-primario); 
         }
-        #joinGameButton:hover:not(:disabled), #settingsButton:hover:not(:disabled),
-        #saveSettingsButton:hover:not(:disabled), #backToMenuButton:hover:not(:disabled) { 
-            background-color: #3e7ab8; 
+        #createGameButton:hover:not(:disabled), #browseGamesButton:hover:not(:disabled),
+        #joinGameButton:hover:not(:disabled), #saveSettingsButton:hover:not(:disabled),
+        #startButton:hover:not(:disabled) { 
+            background-color: var(--color-primario-hover); 
         }
 
-        #resetSettingsButton { background-color: #993333; }
-        #resetSettingsButton:hover:not(:disabled) { background-color: #b33e3e; }
+        /* Acciones Secundarias (Gris) */
+        #settingsButton, #refreshRoomListButton { 
+            background-color: var(--color-secundario); 
+        }
+        #settingsButton:hover:not(:disabled), #refreshRoomListButton:hover:not(:disabled) { 
+            background-color: var(--color-secundario-hover); 
+        }
+
+        /* Acciones de Peligro/Volver (Granate) */
+        #resetSettingsButton, #backToMenuButton, #backToMenuFromRoomListButton { 
+            background-color: var(--color-peligro); 
+        }
+        #resetSettingsButton:hover:not(:disabled), #backToMenuButton:hover:not(:disabled),
+        #backToMenuFromRoomListButton:hover:not(:disabled) { 
+            background-color: var(--color-peligro-hover); 
+        }
 
 
         /* --- PANTALLA DE JUEGO --- */
         #gameCanvas {
             display: block;
-            /* Borde y sombra a juego con la UI */
-            border: 2px solid #4CAF50;
-            background-color: #1a1a1a; 
+            /* Borde y sombra granate/sangre */
+            border: 2px solid var(--color-peligro-borde);
+            background-color: var(--color-fondo-secundario); 
             cursor: crosshair;
-            box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
+            box-shadow: 0 0 15px var(--color-peligro-sombra);
         }
 
 
@@ -172,7 +208,7 @@
             margin-top: 15px;
             text-align: left;
             background-color: rgba(0, 0, 0, 0.2);
-            border-radius: 5px;
+            border-radius: 2px;
             min-height: 100px;
         }
 
@@ -188,16 +224,17 @@
         #lobbyRoomId {
             font-weight: 700;
             font-size: 1.2em;
-            color: #eee;
-            text-align: center; /* Asegurar centrado */
+            color: var(--color-texto);
+            text-align: center;
         }
 
         #hostConfigInfo {
             margin: 15px 0;
             padding: 10px;
-            background-color: rgba(76, 175, 80, 0.2);
-            border: 1px solid rgba(76, 175, 80, 0.4);
-            border-radius: 5px;
+            /* Tinte violeta */
+            background-color: var(--color-primario-tenue);
+            border: 1px solid var(--color-primario-borde);
+            border-radius: 2px;
             font-size: 12px;
             text-align: left;
         }
@@ -207,13 +244,13 @@
             margin: 15px 0;
             padding: 15px;
             background-color: rgba(0, 0, 0, 0.2);
-            border-radius: 5px;
+            border-radius: 2px;
             text-align: left;
         }
         .settings-group h3 {
             margin-top: 0;
-            color: #4CAF50;
-            font-size: 16px;
+            color: var(--color-primario); /* Títulos violeta */
+            font-size: 1.2em;
             text-transform: uppercase;
         }
         .setting-item {
@@ -224,7 +261,7 @@
         }
         .setting-item label {
             flex: 1;
-            font-size: 14px;
+            font-size: 1.1em;
         }
         .setting-item input[type="number"],
         .setting-item select {
@@ -233,7 +270,6 @@
             margin: 0;
             font-size: 1em;
         }
-        /* Corregir ancho del select de control */
         #setting_controlType {
             width: 150px;
         }
@@ -248,15 +284,19 @@
             font-size: 1em;
             padding: 10px;
         }
+        /* Colores de Presets */
+        .preset-buttons button[onclick="applyPreset('easy')"] { background-color: var(--color-secundario); }
+        .preset-buttons button[onclick="applyPreset('normal')"] { background-color: var(--color-primario); }
+        .preset-buttons button[onclick="applyPreset('hard')"] { background-color: var(--color-peligro); }
 
-        /* --- ESTILOS PARA LA LISTA DE SALAS (NUEVO) --- */
+        /* --- ESTILOS PARA LA LISTA DE SALAS --- */
         #roomListContainer {
             width: 100%;
             min-height: 200px;
             max-height: 40vh;
             overflow-y: auto;
             background-color: rgba(0, 0, 0, 0.2);
-            border-radius: 5px;
+            border-radius: 2px;
             border: 1px solid #333;
             margin-bottom: 15px;
         }
@@ -270,9 +310,9 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
-
+        /* Hover violeta */
         .room-item:hover {
-            background-color: rgba(76, 175, 80, 0.3);
+            background-color: var(--color-primario-tenue);
         }
 
         .room-item:last-child {
@@ -285,7 +325,7 @@
 
         .room-info strong {
             font-size: 1.2em;
-            color: #eee;
+            color: var(--color-texto);
         }
 
         .room-info span {
@@ -297,9 +337,9 @@
         .room-join-button {
             padding: 8px 12px;
             font-size: 0.9em;
-            margin: 0; /* Override button defaults */
-            width: auto; /* Override button defaults */
-            background-color: #4CAF50;
+            margin: 0;
+            width: auto;
+            background-color: var(--color-primario); /* Botón violeta */
         }
 
         .room-list-actions {
@@ -307,30 +347,38 @@
             gap: 10px;
         }
 
+        /* --- GAME OVER --- */
+        #gameOverScreen button {
+            background-color: var(--color-secundario); /* Gris */
+        }
+        #gameOverScreen button:hover {
+            background-color: var(--color-secundario-hover);
+        }
+
 
         /* --- MEDIA QUERY PARA MÓVILES --- */
         @media (max-width: 600px) {
             .menu-container {
-                padding: 20px; /* Reducir padding */
-                width: 95%;   /* Usar casi todo el ancho */
+                padding: 20px;
+                width: 95%;
             }
 
             .menu-container h2 {
-                font-size: 1.8em; /* Reducir título */
+                font-size: 2.5em; /* Reducir un poco */
                 margin-bottom: 20px;
             }
 
             button, input[type="text"], input[type="number"], select {
-                padding: 10px; /* Reducir padding de botones/inputs */
+                padding: 12px;
                 font-size: 1em;
             }
 
             .preset-buttons {
-                grid-template-columns: 1fr; /* Apilar botones de presets */
+                grid-template-columns: 1fr;
             }
 
             .setting-item {
-                flex-direction: column; /* Apilar items de ajustes */
+                flex-direction: column;
                 align-items: flex-start;
             }
             .setting-item label {
@@ -338,14 +386,12 @@
             }
             .setting-item input[type="number"],
             .setting-item select {
-                width: 100%; /* Ancho completo para inputs */
+                width: 100%;
             }
-            /* Corregir ancho del select en móvil */
             #setting_controlType {
                 width: 100%;
             }
 
-            /* Estilos de lista de salas en móvil */
             .room-item {
                 flex-direction: column;
                 align-items: flex-start;
@@ -360,12 +406,10 @@
 </head>
 <body>
 
-    <!-- Pantalla del Juego (Lienzo) -->
     <div id="gameScreen">
         <canvas id="gameCanvas"></canvas>
     </div>
 
-    <!-- Pantalla de Menú Principal -->
     <div id="menuScreen" class="menu-container">
         <h2>Zombie Shooter</h2>
 
@@ -374,32 +418,27 @@
         <hr>
 
         <button id="createGameButton">Crear Partida</button>
-        <button id="browseGamesButton">Buscar Partidas</button> <!-- Botón Actualizado -->
+        <button id="browseGamesButton">Buscar Partidas</button>
 
         <hr>
 
         <input type="text" id="roomIdInput" placeholder="UNIRSE POR ID (EJ: ABCD)" maxlength="4" style="text-transform: uppercase;">
-        <button id="joinGameButton">Unirse por ID</button> <!-- Botón Actualizado -->
+        <button id="joinGameButton">Unirse por ID</button>
 
         <hr>
 
         <button id="settingsButton">⚙️ Configuración</button>
     </div>
 
-    <!-- Pantalla de Ajustes -->
     <div id="settingsScreen" class="menu-container" style="display: none;">
-        <h2>⚙️ Configuración</h2>
-
-        <div class="preset-buttons">
-            <button onclick="applyPreset('easy')" style="background-color: #4CAF50;">Fácil</button>
-            <button onclick="applyPreset('normal')" style="background-color: #FF9800;">Normal</button>
-            <button onclick="applyPreset('hard')" style="background-color: #F44336;">Difícil</button>
+        <h2>Configuración</h2> <div class="preset-buttons">
+            <button onclick="applyPreset('easy')">Fácil</button>
+            <button onclick="applyPreset('normal')">Normal</button>
+            <button onclick="applyPreset('hard')">Difícil</button>
         </div>
 
         <div class="settings-group">
-            <h3>🎮 Jugador</h3>
-
-            <!-- NUEVA OPCIÓN DE CONTROL -->
+            <h3>Jugador</h3>
             <div class="setting-item">
                 <label>Método de Control:</label>
                 <select id="setting_controlType">
@@ -408,7 +447,6 @@
                     <option value="keyboard">Teclado/Ratón</option>
                 </select>
             </div>
-
             <div class="setting-item">
                 <label>Vida Máxima:</label>
                 <input type="number" id="setting_playerHealth" min="50" max="300" value="100">
@@ -424,7 +462,7 @@
         </div>
 
         <div class="settings-group">
-            <h3>🧟 Zombies</h3>
+            <h3>Zombies</h3>
             <div class="setting-item">
                 <label>Vida Máxima:</label>
                 <input type="number" id="setting_zombieHealth" min="10" max="100" value="30">
@@ -444,7 +482,7 @@
         </div>
 
         <div class="settings-group">
-            <h3>💥 Combate</h3>
+            <h3>Combate</h3>
             <div class="setting-item">
                 <label>Daño de Bala:</label>
                 <input type="number" id="setting_bulletDamage" min="5" max="50" value="10">
@@ -456,7 +494,7 @@
         </div>
 
         <div class="settings-group">
-            <h3>🗺️ Mapa</h3>
+            <h3>Mapa</h3>
             <div class="setting-item">
                 <label>Tamaño del Mapa:</label>
                 <select id="setting_mapSize">
@@ -480,7 +518,7 @@
         </div>
 
         <div class="settings-group">
-            <h3>🌊 Oleadas</h3>
+            <h3>Oleadas</h3>
             <div class="setting-item">
                 <label>Zombies Iniciales:</label>
                 <input type="number" id="setting_initialZombies" min="3" max="20" value="5">
@@ -493,11 +531,10 @@
 
         <hr>
 
-        <button id="saveSettingsButton">💾 Guardar y Volver</button>
-        <button id="resetSettingsButton">↺ Restaurar Defaults</button>
+        <button id="saveSettingsButton">Guardar y Volver</button>
+        <button id="resetSettingsButton">Restaurar Defaults</button>
     </div>
 
-    <!-- Pantalla de Lobby (Sala de Espera) -->
     <div id="lobbyScreen" class="menu-container" style="display: none;">
         <h2>Sala de Espera</h2>
         <p id="lobbyRoomId"></p>
@@ -506,7 +543,7 @@
         <ul id="lobbyPlayerList"></ul>
 
         <div id="hostConfigInfo" style="display: none;">
-            <strong>⚙️ Configuración Activa:</strong>
+            <strong>Configuración Activa:</strong>
             <div id="configSummary" style="margin-top: 5px;"></div>
         </div>
 
@@ -516,31 +553,27 @@
         <button id="backToMenuButton">Volver al Menú</button>
     </div>
 
-    <!-- PANTALLA DE BUSCADOR DE SALAS (NUEVA) -->
     <div id="roomListScreen" class="menu-container" style="display: none;">
         <h2>Salas Activas</h2>
 
         <div id="roomListContainer">
-            <!-- Las salas se inyectarán aquí (ej: <p>Buscando...</p>) -->
-        </div>
+            </div>
 
         <div class="room-list-actions">
-            <button id="refreshRoomListButton" style="background-color: #336699; flex: 1;">Refrescar</button>
-            <button id="backToMenuFromRoomListButton" style="background-color: #993333; flex: 1;">Volver</button>
+            <button id="refreshRoomListButton" style="flex: 1;">Refrescar</button>
+            <button id="backToMenuFromRoomListButton" style="flex: 1;">Volver</button>
         </div>
     </div>
 
 
-    <!-- Pantalla de Game Over -->
     <div id="gameOverScreen" class="menu-container" style="display: none;">
-        <h2>¡GAME OVER!</h2>
+        <h2>GAME OVER</h2>
         <p>Puntuación Final: <span id="finalScore" style="font-weight: bold;">0</span></p>
         <p>Oleada Alcanzada: <span id="finalWave" style="font-weight: bold;">1</span></p>
 
-        <button onclick="window.location.reload()" style="background-color: #336699;">Jugar de Nuevo</button>
+        <button onclick="window.location.reload()">Jugar de Nuevo</button>
     </div>
 
-    <!-- Scripts del Juego -->
     <script src="/socket.io/socket.io.js"></script> 
     <script src="js/entities.js"></script>
     <script src="js/game.js"></script>

@@ -53,15 +53,13 @@
 
         /* --- ANIMACIONES --- */
         @keyframes glitch {
-            /* Actualizado a la nueva paleta */
-            0%, 100% { text-shadow: 2px 2px var(--color-acento-principal), -2px -2px var(--color-acento-secundario); } /* Naranja, Rojo */
-            25% { text-shadow: -2px 2px var(--color-acento-secundario), 2px -2px var(--color-acento-principal); } /* Rojo, Naranja */
-            50% { text-shadow: 2px -2px var(--color-acento-cuaternario), -2px 2px var(--color-acento-terciario); } /* Granate, Violeta */
-            75% { text-shadow: -2px -2px var(--color-acento-principal), 2px 2px var(--color-acento-secundario); } /* Naranja, Rojo */
+            0%, 100% { text-shadow: 2px 2px var(--color-acento-principal), -2px -2px var(--color-acento-secundario); }
+            25% { text-shadow: -2px 2px var(--color-acento-secundario), 2px -2px var(--color-acento-principal); }
+            50% { text-shadow: 2px -2px var(--color-acento-cuaternario), -2px 2px var(--color-acento-terciario); }
+            75% { text-shadow: -2px -2px var(--color-acento-principal), 2px 2px var(--color-acento-secundario); }
         }
 
         @keyframes pulse-neon {
-            /* Ahora pulsa Naranja */
             0%, 100% { box-shadow: 0 0 10px var(--color-primario-sombra), 0 0 20px var(--color-primario-sombra), inset 0 0 10px rgba(255, 117, 24, 0.2); }
             50% { box-shadow: 0 0 20px var(--color-primario-sombra), 0 0 40px var(--color-primario-sombra), inset 0 0 20px rgba(255, 117, 24, 0.3); }
         }
@@ -84,14 +82,13 @@
             height: 100%;
             overflow: hidden;
             background: 
-                repeating-linear-gradient( /* Scanlines ahora naranjas */
+                repeating-linear-gradient(
                     0deg,
                     transparent,
                     transparent 2px,
                     rgba(255, 117, 24, 0.03) 2px,
                     rgba(255, 117, 24, 0.03) 4px
                 ),
-                /* Fondo negro con un sutil brillo violeta oscuro en el centro */
                 radial-gradient(ellipse at center, #111 0%, var(--color-fondo) 100%);
             color: var(--color-texto);
             font-family: var(--fuente-cuerpo);
@@ -101,7 +98,6 @@
             position: relative;
         }
 
-        /* Efecto de escaneo (Naranja) */
         body::before {
             content: '';
             position: fixed;
@@ -117,13 +113,11 @@
         /* --- ESTILOS DE MENÚS --- */
         .menu-container {
             position: absolute;
-            /* Fondo de menú con violeta oscuro */
             background: 
                 linear-gradient(135deg, rgba(20, 0, 20, 0.98) 0%, rgba(59, 0, 59, 0.95) 100%);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             
-            /* Borde con la nueva paleta (Naranja, Violeta, Rojo) */
             border: 2px solid transparent;
             border-image: linear-gradient(135deg, var(--color-acento-principal), var(--color-acento-terciario), var(--color-acento-secundario)) 1;
             clip-path: polygon(
@@ -131,7 +125,6 @@
                 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px)
             );
             
-            /* Sombra con Naranja y Violeta */
             box-shadow: 
                 0 0 30px rgba(255, 117, 24, 0.4),
                 0 0 60px rgba(74, 4, 78, 0.3),
@@ -150,7 +143,6 @@
             animation: float 6s ease-in-out infinite;
         }
 
-        /* Scrollbar Naranja */
         .menu-container::-webkit-scrollbar {
             width: 8px;
         }
@@ -162,7 +154,7 @@
             box-shadow: 0 0 10px var(--color-acento-principal);
         }
 
-        /* Títulos de Menú (Naranja) */
+        /* Título de Menú */
         .menu-container h2 {
             font-family: var(--fuente-titulos);
             font-size: 3.8em;
@@ -194,17 +186,16 @@
             box-shadow: 0 0 10px var(--color-acento-principal);
         }
 
-        /* Subtítulos (Rojo) */
+        /* Subtítulos */
         .menu-container h3 {
             font-family: var(--fuente-titulos);
             color: var(--color-acento-secundario);
             text-transform: uppercase;
             letter-spacing: 3px;
-            font-size: 1.3em;
+            font-size: 1.15em; 
             text-shadow: 0 0 10px var(--color-acento-secundario);
         }
 
-        /* Separadores (Violeta) */
         hr {
             border: 0;
             height: 2px;
@@ -216,18 +207,20 @@
         }
 
         /* --- ESTILOS DE INPUTS Y BOTONES --- */
+        
+        /* Inputs */
         input[type="text"], input[type="number"], select {
             padding: 14px;
             margin: 10px 0;
             width: 100%;
             box-sizing: border-box;
-            background: linear-gradient(135deg, #0a0a15 0%, #15151f 100%);
+            background: linear-gradient(135deg, #0a0a15 0%, #1515f 100%);
             border: 2px solid #333;
-            border-left: 3px solid var(--color-acento-principal); /* Borde Naranja */
+            border-left: 3px solid var(--color-acento-principal);
             color: var(--color-texto);
             font-family: var(--fuente-cuerpo);
             font-weight: 500;
-            font-size: 1.3em;
+            font-size: 1.1em; 
             clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
             transition: all 0.3s;
             box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
@@ -242,6 +235,7 @@
             background: linear-gradient(135deg, #0f0f1a 0%, #1a1a25 100%);
         }
 
+        /* Botones (ACTUALIZADO) */
         button {
             padding: 14px;
             margin: 10px 0;
@@ -250,15 +244,21 @@
             box-sizing: border-box;
             font-family: var(--fuente-titulos);
             font-weight: 700;
-            font-size: 1.2em;
+            font-size: 1.05em; 
             text-transform: uppercase;
             letter-spacing: 2px;
-            color: white; /* Color base, se sobrescribe abajo */
+            color: white;
             cursor: pointer;
             position: relative;
             overflow: hidden;
             clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
             transition: all 0.3s;
+
+            /* --- APLICADO AHORA A TODOS LOS BOTONES --- */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1; /* Previene problemas de altura de línea de la fuente */
         }
 
         button::before {
@@ -292,12 +292,11 @@
             color: #555 !important;
         }
 
-        /* --- Colores de Botones (Mejora de Visibilidad) --- */
+        /* --- Colores de Botones --- */
 
-        /* Botones Primarios (Naranja) */
         #createGameButton, #browseGamesButton, #joinGameButton, #saveSettingsButton, #startButton { 
             background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-hover) 100%);
-            color: var(--color-primario-texto); /* Texto negro para alto contraste */
+            color: var(--color-primario-texto);
             text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
             box-shadow: 
                 0 0 20px var(--color-primario-sombra),
@@ -314,10 +313,9 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.4);
         }
 
-        /* Botones Secundarios (Granate) */
         #settingsButton, #refreshRoomListButton { 
             background: linear-gradient(135deg, var(--color-secundario) 0%, var(--color-secundario-hover) 100%);
-            color: var(--color-secundario-texto); /* Texto blanco */
+            color: var(--color-secundario-texto);
             text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
             box-shadow: 
                 0 0 15px var(--color-secundario-sombra),
@@ -332,10 +330,9 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.3);
         }
 
-        /* Botones de Peligro (Rojo) */
         #resetSettingsButton, #backToMenuButton, #backToMenuFromRoomListButton { 
             background: linear-gradient(135deg, var(--color-peligro) 0%, var(--color-peligro-hover) 100%);
-            color: var(--color-peligro-texto); /* Texto blanco */
+            color: var(--color-peligro-texto);
             text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
             box-shadow: 
                 0 0 20px var(--color-peligro-sombra),
@@ -354,12 +351,12 @@
         /* --- PANTALLA DE JUEGO --- */
         #gameCanvas {
             display: block;
-            border: 3px solid var(--color-acento-principal); /* Borde Naranja */
+            border: 3px solid var(--color-acento-principal);
             background-color: var(--color-fondo-secundario);
             cursor: crosshair;
             box-shadow: 
                 0 0 30px var(--color-primario-sombra),
-                0 0 60px rgba(74, 4, 78, 0.4), /* Sombra Violeta */
+                0 0 60px rgba(74, 4, 78, 0.4),
                 inset 0 0 40px rgba(0, 0, 0, 0.9);
         }
 
@@ -369,7 +366,6 @@
             padding: 15px;
             margin-top: 15px;
             text-align: left;
-            /* Fondo Naranja/Violeta */
             background: linear-gradient(135deg, rgba(255, 117, 24, 0.05) 0%, rgba(74, 4, 78, 0.05) 100%);
             border-left: 3px solid var(--color-acento-principal);
             clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
@@ -379,8 +375,8 @@
 
         #lobbyPlayerList li {
             padding: 10px 8px;
-            border-bottom: 1px solid rgba(255, 117, 24, 0.2); /* Borde Naranja */
-            font-size: 1.2em;
+            border-bottom: 1px solid rgba(255, 117, 24, 0.2);
+            font-size: 1.1em; 
             font-weight: 500;
             text-shadow: 0 0 5px rgba(255, 117, 24, 0.5);
         }
@@ -390,8 +386,8 @@
 
         #lobbyRoomId {
             font-weight: 700;
-            font-size: 1.4em;
-            color: var(--color-acento-principal); /* Naranja */
+            font-size: 1.2em; 
+            color: var(--color-acento-principal);
             text-align: center;
             text-shadow: 0 0 10px var(--color-acento-principal);
         }
@@ -403,7 +399,7 @@
             border: 2px solid var(--color-acento-terciario);
             border-left: 4px solid var(--color-acento-principal);
             clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-            font-size: 13px;
+            font-size: 12px; 
             text-align: left;
             box-shadow: 
                 0 0 15px rgba(255, 117, 24, 0.3),
@@ -415,7 +411,7 @@
             margin: 20px 0;
             padding: 20px;
             background: linear-gradient(135deg, rgba(10, 10, 20, 0.6) 0%, rgba(20, 10, 30, 0.6) 100%);
-            border-left: 4px solid var(--color-acento-secundario); /* Borde Rojo */
+            border-left: 4px solid var(--color-acento-secundario);
             clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
             text-align: left;
             box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
@@ -427,9 +423,10 @@
             justify-content: space-between;
             align-items: center;
         }
+        
         .setting-item label {
             flex: 1;
-            font-size: 1.15em;
+            font-size: 1.0em; 
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -439,7 +436,7 @@
             width: 100px;
             padding: 10px;
             margin: 0;
-            font-size: 1em;
+            font-size: 1em; 
         }
         #setting_controlType {
             width: 160px;
@@ -451,26 +448,27 @@
             gap: 12px;
             margin-bottom: 20px;
         }
+        
         .preset-buttons button {
-            font-size: 1em;
+            font-size: 0.9em; 
             padding: 12px;
+            /* El centrado flex se hereda de la regla 'button' principal */
         }
 
-        /* Botones de Preset con nueva paleta y contraste */
         .preset-buttons button[onclick="applyPreset('easy')"] { 
-            background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-hover) 100%); /* Naranja */
+            background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-hover) 100%);
             box-shadow: 0 0 15px var(--color-primario-sombra), 0 4px 0 var(--color-primario-sombra-oscura);
-            color: var(--color-primario-texto); /* Texto negro */
+            color: var(--color-primario-texto);
         }
         .preset-buttons button[onclick="applyPreset('normal')"] { 
-            background: linear-gradient(135deg, var(--color-secundario) 0%, var(--color-secundario-hover) 100%); /* Granate */
+            background: linear-gradient(135deg, var(--color-secundario) 0%, var(--color-secundario-hover) 100%);
             box-shadow: 0 0 15px var(--color-secundario-sombra), 0 4px 0 var(--color-secundario-sombra-oscura);
-            color: var(--color-secundario-texto); /* Texto blanco */
+            color: var(--color-secundario-texto);
         }
         .preset-buttons button[onclick="applyPreset('hard')"] { 
-            background: linear-gradient(135deg, var(--color-peligro) 0%, var(--color-peligro-hover) 100%); /* Rojo */
+            background: linear-gradient(135deg, var(--color-peligro) 0%, var(--color-peligro-hover) 100%);
             box-shadow: 0 0 15px var(--color-peligro-sombra), 0 4px 0 var(--color-peligro-sombra-oscura);
-            color: var(--color-peligro-texto); /* Texto blanco */
+            color: var(--color-peligro-texto);
         }
 
         /* --- LISTA DE SALAS --- */
@@ -481,7 +479,7 @@
             overflow-y: auto;
             background: linear-gradient(135deg, rgba(10, 10, 20, 0.6) 0%, rgba(20, 10, 30, 0.6) 100%);
             border: 2px solid #333;
-            border-left: 4px solid var(--color-acento-principal); /* Borde Naranja */
+            border-left: 4px solid var(--color-acento-principal);
             clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
             margin-bottom: 20px;
             box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
@@ -492,7 +490,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 15px 20px;
-            border-bottom: 1px solid rgba(255, 117, 24, 0.2); /* Borde Naranja */
+            border-bottom: 1px solid rgba(255, 117, 24, 0.2);
             cursor: pointer;
             transition: all 0.3s;
         }
@@ -512,9 +510,9 @@
         }
 
         .room-info strong {
-            font-size: 1.3em;
+            font-size: 1.15em; 
             font-family: var(--fuente-titulos);
-            color: var(--color-acento-principal); /* Naranja */
+            color: var(--color-acento-principal);
             text-shadow: 0 0 8px var(--color-acento-principal);
         }
 
@@ -527,9 +525,10 @@
 
         .room-join-button {
             padding: 10px 16px;
-            font-size: 0.95em;
+            font-size: 0.95em; 
             margin: 0;
             width: auto;
+            /* El centrado flex se hereda de la regla 'button' principal */
         }
 
         .room-list-actions {
@@ -539,23 +538,23 @@
 
         /* --- GAME OVER --- */
         #gameOverScreen button {
-            /* Estilo secundario (Granate) */
             background: linear-gradient(135deg, var(--color-secundario) 0%, var(--color-secundario-hover) 100%);
             color: var(--color-secundario-texto);
             text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
             box-shadow: 0 0 20px var(--color-secundario-sombra), 0 6px 0 var(--color-secundario-sombra-oscura);
+            /* El centrado flex se hereda de la regla 'button' principal */
         }
         #gameOverScreen button:hover {
             box-shadow: 0 0 30px var(--color-secundario-sombra), 0 8px 0 var(--color-secundario-sombra-oscura);
         }
 
         #finalScore, #finalWave {
-            color: var(--color-acento-principal); /* Naranja */
-            font-size: 1.5em;
+            color: var(--color-acento-principal);
+            font-size: 1.3em; 
             text-shadow: 0 0 10px var(--color-acento-principal);
         }
 
-        /* --- MEDIA QUERY PARA MÓVILES --- */
+        /* --- MEDIA QUERY PARA MÓVILES (PORTRAIT) --- */
         @media (max-width: 600px) {
             .menu-container {
                 padding: 25px;
@@ -569,7 +568,7 @@
 
             button, input[type="text"], input[type="number"], select {
                 padding: 13px;
-                font-size: 1.1em;
+                font-size: 1.0em;
             }
 
             .preset-buttons {
@@ -600,13 +599,63 @@
                 width: 100%;
             }
         }
+        
+        /* --- MEDIA QUERY PARA APAISADO (LIMPIADA) --- */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .menu-container {
+                padding: 15px 25px; 
+                max-height: 95vh;
+            }
+
+            .menu-container h2 {
+                font-size: 2.2em; 
+                margin-bottom: 10px; 
+            }
+
+            .menu-container h2::before {
+                display: none; 
+            }
+
+            hr {
+                margin: 10px 0; 
+            }
+
+            /* Regla para inputs/select */
+            input[type="text"], input[type="number"], select {
+                padding: 10px; 
+                margin: 6px 0; 
+                font-size: 0.95em;
+            }
+
+            /* Regla apaisada para botones (ya no necesita flex) */
+            button {
+                padding: 10px; 
+                margin: 6px 0; 
+                font-size: 0.95em;
+                /* El centrado (flex) se hereda de la regla principal */
+            }
+
+            .menu-container h3 {
+                font-size: 1.0em; 
+            }
+
+            .setting-item label {
+                font-size: 0.9em; 
+            }
+            
+            .preset-buttons button {
+                font-size: 0.8em; 
+                padding: 10px;
+                /* El centrado (flex) se hereda de la regla principal */
+            }
+        }
+
     </style>
 </head>
 <body>
 
     <!--
-        ESTE ES EL CUERPO HTML EXACTO DE TU VERSIÓN "GÓTICA" FUNCIONAL.
-        NO SE HA MODIFICADO NADA AQUÍ.
+        EL CUERPO HTML NO SE HA MODIFICADO.
     -->
 
     <div id="gameScreen">
@@ -772,7 +821,7 @@
     <div id="gameOverScreen" class="menu-container" style="display: none;">
         <h2>GAME OVER</h2>
         <p>Puntuación Final: <span id="finalScore" style="font-weight: bold;">0</span></p>
-        <p>Oleada Alcanzada: <span id="finalWave" style="font-weight: bold;">1</span></p>
+        <p>Oleada Alcanzada: <span id="finalWave" style="font-weight: bold;">0</span></p>
 
         <button onclick="window.location.reload()">Jugar de Nuevo</button>
     </div>
@@ -784,4 +833,5 @@
 
 </body>
 </html>
+
 

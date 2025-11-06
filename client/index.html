@@ -7,7 +7,7 @@
 
     <!-- FUENTES DE LA ESTÉTICA "APOCALIPSIS" -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
 
     <!-- ESTILOS DE LA ESTÉTICA "APOCALIPSIS" -->
@@ -64,10 +64,7 @@
             50% { box-shadow: 0 0 20px var(--color-primario-sombra), 0 0 40px var(--color-primario-sombra), inset 0 0 20px rgba(255, 117, 24, 0.3); }
         }
 
-        @keyframes scan-line {
-            0% { top: 0%; }
-            100% { top: 100%; }
-        }
+        /* Keyframe "scan-line" eliminado */
 
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
@@ -98,17 +95,7 @@
             position: relative;
         }
 
-        body::before {
-            content: '';
-            position: fixed;
-            width: 100%;
-            height: 3px;
-            background: linear-gradient(transparent, var(--color-acento-principal), transparent);
-            animation: scan-line 4s linear infinite;
-            opacity: 0.3;
-            pointer-events: none;
-            z-index: 9999;
-        }
+        /* Efecto "scan-line" (body::before) eliminado */
 
         /* --- ESTILOS DE MENÚS --- */
         .menu-container {
@@ -154,8 +141,8 @@
             box-shadow: 0 0 10px var(--color-acento-principal);
         }
 
-        /* Título de Menú */
-        .menu-container h2 {
+        /* Título de Menú (Solo para #menuScreen) */
+        #menuScreen h2 {
             font-family: var(--fuente-titulos);
             font-size: 3.8em;
             font-weight: 900;
@@ -174,7 +161,7 @@
             animation: glitch 5s infinite;
         }
 
-        .menu-container h2::before {
+        #menuScreen h2::before {
             content: '';
             position: absolute;
             bottom: -10px;
@@ -184,6 +171,20 @@
             height: 2px;
             background: linear-gradient(90deg, transparent, var(--color-acento-principal), transparent);
             box-shadow: 0 0 10px var(--color-acento-principal);
+        }
+
+        /* Títulos para otros menús (Config, Lobby, etc.) - PEQUEÑO Y CENTRADO */
+        .menu-container h2 {
+            font-family: var(--fuente-titulos);
+            font-size: 2.4em; /* Mucho más pequeño */
+            font-weight: 700;
+            color: var(--color-acento-principal); /* Naranja */
+            letter-spacing: 3px;
+            margin-top: 0;
+            margin-bottom: 25px;
+            text-align: center;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px var(--color-primario-sombra);
         }
 
         /* Subtítulos */
@@ -214,7 +215,7 @@
             margin: 10px 0;
             width: 100%;
             box-sizing: border-box;
-            background: linear-gradient(135deg, #0a0a15 0%, #1515f 100%);
+            background: linear-gradient(135deg, #0a0a15 0%, #15151f 100%);
             border: 2px solid #333;
             border-left: 3px solid var(--color-acento-principal);
             color: var(--color-texto);
@@ -235,12 +236,26 @@
             background: linear-gradient(135deg, #0f0f1a 0%, #1a1a25 100%);
         }
 
-        /* Botones (ACTUALIZADO) */
-        button {
+        /* Corregir fondo blanco de autocompletar en Chrome */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active  {
+            -webkit-box-shadow: 0 0 0 30px #15151f inset !important; /* Mismo color que el fondo del input */
+            -webkit-text-fill-color: var(--color-texto) !important; /* Mismo color que el texto normal */
+            caret-color: var(--color-texto) !important; /* Color del cursor */
+            font-family: var(--fuente-cuerpo) !important;
+            font-weight: 500 !important;
+            font-size: 1.1em !important;
+        }
+
+        /* --- OPTIMIZACIÓN DE BOTONES --- */
+        
+        /* Clase Base del Botón */
+        .btn {
             padding: 14px;
             margin: 10px 0;
             border: none;
-            width: 100%;
             box-sizing: border-box;
             font-family: var(--fuente-titulos);
             font-weight: 700;
@@ -253,15 +268,19 @@
             overflow: hidden;
             clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
             transition: all 0.3s;
-
-            /* --- APLICADO AHORA A TODOS LOS BOTONES --- */
+            
+            /* Solución de centrado vertical */
             display: flex;
             align-items: center;
             justify-content: center;
-            line-height: 1; /* Previene problemas de altura de línea de la fuente */
+            line-height: 1; 
         }
 
-        button::before {
+        .btn-block {
+            width: 100%;
+        }
+
+        .btn::before {
             content: '';
             position: absolute;
             top: 0;
@@ -272,19 +291,19 @@
             transition: left 0.5s;
         }
 
-        button:hover:not(:disabled)::before {
+        .btn:hover:not(:disabled)::before {
             left: 100%;
         }
 
-        button:hover:not(:disabled) {
+        .btn:hover:not(:disabled) {
             transform: translateY(-3px);
         }
 
-        button:active:not(:disabled) {
+        .btn:active:not(:disabled) {
             transform: translateY(1px);
         }
 
-        button:disabled {
+        .btn:disabled {
             background: #1a1a1a !important;
             cursor: not-allowed;
             opacity: 0.4;
@@ -292,9 +311,8 @@
             color: #555 !important;
         }
 
-        /* --- Colores de Botones --- */
-
-        #createGameButton, #browseGamesButton, #joinGameButton, #saveSettingsButton, #startButton { 
+        /* Botón Primario (Naranja) */
+        .btn-primary { 
             background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-hover) 100%);
             color: var(--color-primario-texto);
             text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
@@ -304,16 +322,15 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.3);
             border-top: 2px solid rgba(255, 255, 255, 0.2);
         }
-        #createGameButton:hover:not(:disabled), #browseGamesButton:hover:not(:disabled),
-        #joinGameButton:hover:not(:disabled), #saveSettingsButton:hover:not(:disabled),
-        #startButton:hover:not(:disabled) { 
+        .btn-primary:hover:not(:disabled) { 
             box-shadow: 
                 0 0 30px var(--color-primario-sombra),
                 0 8px 0 var(--color-primario-sombra-oscura),
                 inset 0 1px 0 rgba(255, 255, 255, 0.4);
         }
 
-        #settingsButton, #refreshRoomListButton { 
+        /* Botón Secundario (Granate) */
+        .btn-secondary { 
             background: linear-gradient(135deg, var(--color-secundario) 0%, var(--color-secundario-hover) 100%);
             color: var(--color-secundario-texto);
             text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
@@ -323,14 +340,15 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.2);
             border-top: 2px solid rgba(255, 255, 255, 0.1);
         }
-        #settingsButton:hover:not(:disabled), #refreshRoomListButton:hover:not(:disabled) { 
+        .btn-secondary:hover:not(:disabled) { 
             box-shadow: 
                 0 0 25px var(--color-secundario-sombra),
                 0 8px 0 var(--color-secundario-sombra-oscura),
                 inset 0 1px 0 rgba(255, 255, 255, 0.3);
         }
 
-        #resetSettingsButton, #backToMenuButton, #backToMenuFromRoomListButton { 
+        /* Botón Peligro (Rojo) */
+        .btn-danger { 
             background: linear-gradient(135deg, var(--color-peligro) 0%, var(--color-peligro-hover) 100%);
             color: var(--color-peligro-texto);
             text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
@@ -340,8 +358,7 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.3);
             border-top: 2px solid rgba(255, 255, 255, 0.2);
         }
-        #resetSettingsButton:hover:not(:disabled), #backToMenuButton:hover:not(:disabled),
-        #backToMenuFromRoomListButton:hover:not(:disabled) { 
+        .btn-danger:hover:not(:disabled) { 
             box-shadow: 
                 0 0 30px var(--color-peligro-sombra),
                 0 8px 0 var(--color-peligro-sombra-oscura),
@@ -449,27 +466,11 @@
             margin-bottom: 20px;
         }
         
-        .preset-buttons button {
+        .preset-buttons .btn { /* Estilo específico para presets */
             font-size: 0.9em; 
             padding: 12px;
-            /* El centrado flex se hereda de la regla 'button' principal */
         }
-
-        .preset-buttons button[onclick="applyPreset('easy')"] { 
-            background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-hover) 100%);
-            box-shadow: 0 0 15px var(--color-primario-sombra), 0 4px 0 var(--color-primario-sombra-oscura);
-            color: var(--color-primario-texto);
-        }
-        .preset-buttons button[onclick="applyPreset('normal')"] { 
-            background: linear-gradient(135deg, var(--color-secundario) 0%, var(--color-secundario-hover) 100%);
-            box-shadow: 0 0 15px var(--color-secundario-sombra), 0 4px 0 var(--color-secundario-sombra-oscura);
-            color: var(--color-secundario-texto);
-        }
-        .preset-buttons button[onclick="applyPreset('hard')"] { 
-            background: linear-gradient(135deg, var(--color-peligro) 0%, var(--color-peligro-hover) 100%);
-            box-shadow: 0 0 15px var(--color-peligro-sombra), 0 4px 0 var(--color-peligro-sombra-oscura);
-            color: var(--color-peligro-texto);
-        }
+        /* Estilos [onclick] eliminados */
 
         /* --- LISTA DE SALAS --- */
         #roomListContainer {
@@ -523,30 +524,32 @@
             margin-top: 5px;
         }
 
+        /* Estilo para el botón de unirse (usado por JS) */
         .room-join-button {
+            /* Hereda de .btn-primary */
+            background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-hover) 100%);
+            color: var(--color-primario-texto);
+            text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 20px var(--color-primario-sombra), 0 6px 0 var(--color-primario-sombra-oscura);
+            border-top: 2px solid rgba(255, 255, 255, 0.2);
+            
+            /* Sobreescritura de tamaño */
             padding: 10px 16px;
             font-size: 0.95em; 
             margin: 0;
             width: auto;
-            /* El centrado flex se hereda de la regla 'button' principal */
         }
+        .room-join-button:hover:not(:disabled) {
+             box-shadow: 0 0 30px var(--color-primario-sombra), 0 8px 0 var(--color-primario-sombra-oscura);
+        }
+
 
         .room-list-actions {
             display: flex;
             gap: 15px;
         }
 
-        /* --- GAME OVER --- */
-        #gameOverScreen button {
-            background: linear-gradient(135deg, var(--color-secundario) 0%, var(--color-secundario-hover) 100%);
-            color: var(--color-secundario-texto);
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
-            box-shadow: 0 0 20px var(--color-secundario-sombra), 0 6px 0 var(--color-secundario-sombra-oscura);
-            /* El centrado flex se hereda de la regla 'button' principal */
-        }
-        #gameOverScreen button:hover {
-            box-shadow: 0 0 30px var(--color-secundario-sombra), 0 8px 0 var(--color-secundario-sombra-oscura);
-        }
+        /* Estilo de Game Over eliminado, se usa .btn-secondary */
 
         #finalScore, #finalWave {
             color: var(--color-acento-principal);
@@ -561,18 +564,26 @@
                 width: 95%;
             }
 
-            .menu-container h2 {
+            /* El h2 grande se ajusta */
+            #menuScreen h2 {
                 font-size: 2.8em;
                 margin-bottom: 25px;
             }
+            /* El h2 pequeño se ajusta */
+            .menu-container h2 {
+                font-size: 2.0em;
+            }
 
-            button, input[type="text"], input[type="number"], select {
+            .btn, input[type="text"], input[type="number"], select {
                 padding: 13px;
                 font-size: 1.0em;
             }
 
             .preset-buttons {
                 grid-template-columns: 1fr;
+            }
+            .preset-buttons .btn {
+                font-size: 1.0em; /* Hacerlos un poco más grandes en vertical */
             }
 
             .setting-item {
@@ -607,13 +618,18 @@
                 max-height: 95vh;
             }
 
-            .menu-container h2 {
+            /* El h2 grande se ajusta */
+            #menuScreen h2 {
                 font-size: 2.2em; 
                 margin-bottom: 10px; 
             }
-
-            .menu-container h2::before {
+            #menuScreen h2::before {
                 display: none; 
+            }
+            /* El h2 pequeño se ajusta */
+            .menu-container h2 {
+                font-size: 1.8em;
+                margin-bottom: 10px;
             }
 
             hr {
@@ -627,12 +643,11 @@
                 font-size: 0.95em;
             }
 
-            /* Regla apaisada para botones (ya no necesita flex) */
-            button {
+            /* Regla apaisada para botones */
+            .btn {
                 padding: 10px; 
                 margin: 6px 0; 
                 font-size: 0.95em;
-                /* El centrado (flex) se hereda de la regla principal */
             }
 
             .menu-container h3 {
@@ -643,10 +658,9 @@
                 font-size: 0.9em; 
             }
             
-            .preset-buttons button {
+            .preset-buttons .btn {
                 font-size: 0.8em; 
                 padding: 10px;
-                /* El centrado (flex) se hereda de la regla principal */
             }
         }
 
@@ -655,7 +669,8 @@
 <body>
 
     <!--
-        EL CUERPO HTML NO SE HA MODIFICADO.
+        EL CUERPO HTML HA SIDO ACTUALIZADO
+        PARA USAR LAS CLASES DE BOTÓN OPTIMIZADAS
     -->
 
     <div id="gameScreen">
@@ -669,24 +684,26 @@
 
         <hr>
 
-        <button id="createGameButton">Crear Partida</button>
-        <button id="browseGamesButton">Buscar Partidas</button>
+        <button id="createGameButton" class="btn btn-primary btn-block">Crear Partida</button>
+        <button id="browseGamesButton" class="btn btn-primary btn-block">Buscar Partidas</button>
 
         <hr>
 
         <input type="text" id="roomIdInput" placeholder="UNIRSE POR ID (EJ: ABCD)" maxlength="4" style="text-transform: uppercase;">
-        <button id="joinGameButton">Unirse por ID</button>
+        <button id="joinGameButton" class="btn btn-primary btn-block">Unirse por ID</button>
 
         <hr>
 
-        <button id="settingsButton">⚙️ Configuración</button>
+        <button id="settingsButton" class="btn btn-secondary btn-block">⚙️ Configuración</button>
     </div>
 
     <div id="settingsScreen" class="menu-container" style="display: none;">
-        <h2>Configuración</h2> <div class="preset-buttons">
-            <button onclick="applyPreset('easy')">Fácil</button>
-            <button onclick="applyPreset('normal')">Normal</button>
-            <button onclick="applyPreset('hard')">Difícil</button>
+        <h2>Configuración</h2> 
+        
+        <div class="preset-buttons">
+            <button onclick="applyPreset('easy')" class="btn btn-primary">Fácil</button>
+            <button onclick="applyPreset('normal')" class="btn btn-secondary">Normal</button>
+            <button onclick="applyPreset('hard')" class="btn btn-danger">Difícil</button>
         </div>
 
         <div class="settings-group">
@@ -783,8 +800,8 @@
 
         <hr>
 
-        <button id="saveSettingsButton">Guardar y Volver</button>
-        <button id="resetSettingsButton">Restaurar Defaults</button>
+        <button id="saveSettingsButton" class="btn btn-primary btn-block">Guardar y Volver</button>
+        <button id="resetSettingsButton" class="btn btn-danger btn-block">Restaurar Defaults</button>
     </div>
 
     <div id="lobbyScreen" class="menu-container" style="display: none;">
@@ -801,8 +818,8 @@
 
         <hr>
 
-        <button id="startButton">Iniciar Partida</button>
-        <button id="backToMenuButton">Volver al Menú</button>
+        <button id="startButton" class="btn btn-primary btn-block">Iniciar Partida</button>
+        <button id="backToMenuButton" class="btn btn-danger btn-block">Volver al Menú</button>
     </div>
 
     <div id="roomListScreen" class="menu-container" style="display: none;">
@@ -812,8 +829,9 @@
             </div>
 
         <div class="room-list-actions">
-            <button id="refreshRoomListButton" style="flex: 1;">Refrescar</button>
-            <button id="backToMenuFromRoomListButton" style="flex: 1;">Volver</button>
+            <!-- Estos botones no usan .btn-block para estar uno al lado del otro -->
+            <button id="refreshRoomListButton" class="btn btn-secondary" style="flex: 1;">Refrescar</button>
+            <button id="backToMenuFromRoomListButton" class="btn btn-danger" style="flex: 1;">Volver</button>
         </div>
     </div>
 
@@ -823,7 +841,7 @@
         <p>Puntuación Final: <span id="finalScore" style="font-weight: bold;">0</span></p>
         <p>Oleada Alcanzada: <span id="finalWave" style="font-weight: bold;">0</span></p>
 
-        <button onclick="window.location.reload()">Jugar de Nuevo</button>
+        <button onclick="window.location.reload()" class="btn btn-secondary btn-block">Jugar de Nuevo</button>
     </div>
 
     <!-- SCRIPTS DE TU VERSIÓN FUNCIONAL -->
@@ -833,5 +851,3 @@
 
 </body>
 </html>
-
-

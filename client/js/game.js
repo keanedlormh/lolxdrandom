@@ -1,24 +1,23 @@
 /**
- * client/js/game.js - ACTUALIZADO
- * - Corregido 'calculateAimVector'.
- * - La función ahora usa la posición REAL del jugador en la pantalla
- * (me.x - clientState.cameraX) en lugar de asumir que siempre
- * está en el centro (canvas.width / 2).
- * - Esto elimina el error de "paralaje" al disparar cerca
- * de los bordes del mapa.
+ * client/js/game.js - ACTUALIZADO v1.2
+ * - MODIFICADO: drawHUD() rediseñado para ser adaptable (responsive).
+ * - MODIFICADO: drawMinimap() para aceptar altura de HUD y cambiar color de jugadores.
  */
+
 
 const socket = io();
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+
 const SCALE = 1.0; 
 window.SCALE = SCALE;
 const SERVER_TICK_RATE = 30;
 
+
 // Configuración por defecto del juego
 const DEFAULT_CONFIG = {
-    controlType: 'auto', // NUEVO: 'auto', 'touch', 'keyboard'
+    controlType: 'auto', 
     playerHealth: 100,
     playerSpeed: 6,
     shootCooldown: 150,
@@ -35,8 +34,10 @@ const DEFAULT_CONFIG = {
     waveMultiplier: 3
 };
 
+
 // Configuración actual del juego
 let gameConfig = {...DEFAULT_CONFIG};
+
 
 // Cargar configuración guardada del localStorage
 function loadConfig() {
@@ -54,14 +55,16 @@ function loadConfig() {
     updateControlMethod(); // Determinar método de control al cargar
 }
 
+
 // Guardar configuración en localStorage
 function saveConfig() {
     localStorage.setItem('zombieGameConfig', JSON.stringify(gameConfig));
 }
 
+
 // Aplicar configuración a los inputs del UI
 function applyConfigToUI() {
-    document.getElementById('setting_controlType').value = gameConfig.controlType; // NUEVO
+    document.getElementById('setting_controlType').value = gameConfig.controlType; 
     document.getElementById('setting_playerHealth').value = gameConfig.playerHealth;
     document.getElementById('setting_playerSpeed').value = gameConfig.playerSpeed;
     document.getElementById('setting_shootCooldown').value = gameConfig.shootCooldown;
@@ -78,9 +81,10 @@ function applyConfigToUI() {
     document.getElementById('setting_waveMultiplier').value = gameConfig.waveMultiplier;
 }
 
+
 // Leer configuración desde el UI
 function readConfigFromUI() {
-    gameConfig.controlType = document.getElementById('setting_controlType').value; // NUEVO
+    gameConfig.controlType = document.getElementById('setting_controlType').value; 
     gameConfig.playerHealth = parseInt(document.getElementById('setting_playerHealth').value);
     gameConfig.playerSpeed = parseFloat(document.getElementById('setting_playerSpeed').value);
     gameConfig.shootCooldown = parseInt(document.getElementById('setting_shootCooldown').value);
@@ -97,7 +101,8 @@ function readConfigFromUI() {
     gameConfig.waveMultiplier = parseFloat(document.getElementById('setting_waveMultiplier').value);
 }
 
-// Presets de dificultad (CORREGIDO para no sobreescribir config de control)
+
+// Presets de dificultad
 window.applyPreset = function(preset) {
     let presetSettings = {};
     switch(preset) {
@@ -166,13 +171,14 @@ const KNOB_RADIUS = 30;
 
 const touchState = {
     isTouchDevice: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
-    currentControlMethod: 'auto', // NUEVO: Se setea a 'touch' o 'keyboard' en updateControlMethod
+    currentControlMethod: 'auto', // Se setea a 'touch' o 'keyboard' en updateControlMethod
     move: { active: false, id: null, centerX: 0, centerY: 0, currentX: 0, currentY: 0 },
     aim: { active: false, id: null, centerX: 0, centerY: 0, currentX: 0, currentY: 0 }
 };
 
+
 /**
- * NUEVO: Determina qué método de control usar basado en la config
+ * Determina qué método de control usar basado en la config
  */
 function updateControlMethod() {
     let method = gameConfig.controlType;
@@ -240,18 +246,15 @@ function sendInputToServer() {
 
 
 // --- MOVIMIENTO Y PUNTERÍA (TECLADO/RATÓN) ---
-// CAMBIADO: 'if (!touchState.isTouchDevice)' por 'if (touchState.currentControlMethod === 'keyboard')'
-// Nota: Se debe volver a comprobar en el evento, ya que el método puede cambiar.
-// El listener se añade una vez, pero solo ejecutará la lógica si el modo es correcto.
-
 const moveKeys = {
     'w': { dy: -1 }, 's': { dy: 1 },
     'a': { dx: -1 }, 'd': { dx: 1 },
 };
 const keysPressed = new Set();
 
+
 document.addEventListener('keydown', (e) => {
-    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; // CHECK
+    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; 
     const key = e.key.toLowerCase();
     if (moveKeys[key]) {
         keysPressed.add(key);
@@ -260,8 +263,9 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+
 document.addEventListener('keyup', (e) => {
-    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; // CHECK
+    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; 
     const key = e.key.toLowerCase();
     if (moveKeys[key]) {
         keysPressed.delete(key);
@@ -269,8 +273,9 @@ document.addEventListener('keyup', (e) => {
     }
 });
 
+
 function updateMoveInput() {
-    if (touchState.currentControlMethod !== 'keyboard') { // CHECK
+    if (touchState.currentControlMethod !== 'keyboard') { 
         clientState.input.moveX = 0;
         clientState.input.moveY = 0;
         return;
@@ -285,42 +290,39 @@ function updateMoveInput() {
     clientState.input.moveY = moveY;
 }
 
+
 /**
- * --- ¡FUNCIÓN CORREGIDA! ---
- * Esta es la función clave que se ha modificado.
+ * Función de cálculo de puntería (Corregida en v1.1)
  */
 function calculateAimVector(e) {
-    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; // CHECK
+    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; 
 
-    // 1. Obtener 'me' (jugador local)
+
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
-    
-    // Si 'me' o la cámara (cameraX) no están listos, no hacer nada.
     if (!me || clientState.cameraX === undefined || clientState.cameraY === undefined) {
         return;
     }
 
-    // 2. Calcular la posición del ratón en la pantalla (como antes)
+
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left; 
     const mouseY = e.clientY - rect.top;
 
-    // 3. (LA CORRECCIÓN) Calcular la posición REAL del jugador en la pantalla
-    //    player_world_pos - camera_world_pos = player_screen_pos
+
     const playerScreenX = me.x - clientState.cameraX;
     const playerScreenY = me.y - clientState.cameraY;
 
-    // 4. Calcular el vector desde el jugador (en pantalla) al ratón (en pantalla)
+
     let shootX = mouseX - playerScreenX;
     let shootY = mouseY - playerScreenY;
 
-    // 5. Normalizar el vector (como antes)
+
     const length = Math.sqrt(shootX ** 2 + shootY ** 2);
     if (length > 0.1) { 
         clientState.input.shootX = shootX / length;
         clientState.input.shootY = shootY / length;
 
-        // Actualizar el 'me' local para el retículo (como antes)
+
         if (me) {
             me.shootX = clientState.input.shootX;
             me.shootY = clientState.input.shootY;
@@ -328,17 +330,20 @@ function calculateAimVector(e) {
     }
 }
 
+
 canvas.addEventListener('mousemove', calculateAimVector);
 
+
 canvas.addEventListener('mousedown', (e) => {
-    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; // CHECK
+    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; 
     if (e.button === 0) {
         clientState.input.isShooting = true;
     }
 });
 
+
 canvas.addEventListener('mouseup', (e) => {
-    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; // CHECK
+    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; 
     if (e.button === 0) {
         clientState.input.isShooting = false;
     }
@@ -346,17 +351,16 @@ canvas.addEventListener('mouseup', (e) => {
 
 
 // --- LÓGICA TÁCTIL (JOYSTICKS) ---
-// CAMBIADO: 'if (touchState.isTouchDevice)' por 'if (touchState.currentControlMethod === 'touch')'
-// (Misma lógica que arriba, los listeners se añaden pero solo actúan si el modo es 'touch')
-
 canvas.addEventListener('touchstart', (e) => {
-    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return; // CHECK
+    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return; 
     e.preventDefault();
+
 
     Array.from(e.changedTouches).forEach(touch => {
         const screenX = touch.clientX;
         const screenY = touch.clientY;
         const isLeftHalf = screenX < canvas.width * 0.5;
+
 
         if (isLeftHalf && !touchState.move.active) {
             const move = touchState.move;
@@ -377,15 +381,18 @@ canvas.addEventListener('touchstart', (e) => {
             clientState.input.isShooting = true;
         }
     });
-}, { passive: false }); // Necesario para preventDefault
+}, { passive: false }); 
+
 
 canvas.addEventListener('touchmove', (e) => {
-    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return; // CHECK
+    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return; 
     e.preventDefault();
+
 
     Array.from(e.changedTouches).forEach(touch => {
         const screenX = touch.clientX;
         const screenY = touch.clientY;
+
 
         if (touchState.move.active && touch.identifier === touchState.move.id) {
             const move = touchState.move;
@@ -393,10 +400,12 @@ canvas.addEventListener('touchmove', (e) => {
             let dy = screenY - move.centerY;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
+
             if (distance > JOYSTICK_RADIUS) {
                 dx *= JOYSTICK_RADIUS / distance;
                 dy *= JOYSTICK_RADIUS / distance;
             }
+
 
             move.currentX = move.centerX + dx;
             move.currentY = move.centerY + dy;
@@ -409,17 +418,21 @@ canvas.addEventListener('touchmove', (e) => {
             let dy = screenY - aim.centerY;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
+
             if (distance > JOYSTICK_RADIUS) {
                 dx *= JOYSTICK_RADIUS / distance;
                 dy *= JOYSTICK_RADIUS / distance;
             }
 
+
             aim.currentX = aim.centerX + dx;
             aim.currentY = aim.centerY + dy;
+
 
             if (distance > KNOB_RADIUS / 2) { 
                 clientState.input.shootX = dx / distance;
                 clientState.input.shootY = dy / distance;
+
 
                 const me = clientState.interpolatedEntities.players.get(clientState.me.id);
                 if (me) {
@@ -429,11 +442,13 @@ canvas.addEventListener('touchmove', (e) => {
             }
         }
     });
-}, { passive: false }); // Necesario para preventDefault
+}, { passive: false }); 
+
 
 canvas.addEventListener('touchend', (e) => {
-    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return; // CHECK
+    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return; 
     e.preventDefault();
+
 
     Array.from(e.changedTouches).forEach(touch => {
         if (touchState.move.active && touch.identifier === touchState.move.id) {
@@ -448,7 +463,7 @@ canvas.addEventListener('touchend', (e) => {
             clientState.input.isShooting = false;
         }
     });
-}, { passive: false }); // Necesario para preventDefault
+}, { passive: false }); 
 
 
 // --- RENDERIZADO ---
@@ -497,9 +512,7 @@ function interpolateEntities(factor) {
         p_client.health = p_server.health;
         p_client.kills = p_server.kills;
 
-        // CAMBIADO: 'if (!isMe || !touchState.isTouchDevice)'
-        // Si no soy yo, O si soy yo y uso teclado, actualiza la mira desde el servidor.
-        // Si soy yo y uso touch, NO actualices (mi pulgar manda).
+
         if (!isMe || touchState.currentControlMethod === 'keyboard') {
             p_client.shootX = p_server.shootX;
             p_client.shootY = p_server.shootY;
@@ -573,7 +586,7 @@ function drawGame(deltaTime) {
         if (viewportW > mapSize) cameraX = -(viewportW - mapSize) / 2; 
         if (viewportH > mapSize) cameraY = -(viewportH - mapSize) / 2;
 
-        // Cachear la posición de la cámara para que la use 'calculateAimVector'
+
         clientState.cameraX = cameraX;
         clientState.cameraY = cameraY;
     } else {
@@ -615,9 +628,10 @@ function drawGame(deltaTime) {
     ctx.restore();
 
 
+    // Dibuja el HUD (modificado en v1.2)
     drawHUD(me);
 
-    // CAMBIADO: 'if (touchState.isTouchDevice)'
+
     if (touchState.currentControlMethod === 'touch') {
         drawJoysticks();
     }
@@ -658,42 +672,69 @@ function drawJoysticks() {
 
 /**
  * Dibuja el HUD (Puntuación, Vida) y el Minimapa.
+ * --- v1.2: REDISEÑADO PARA SER ADAPTABLE ---
  */
 function drawHUD(player) {
     const { serverSnapshot } = clientState;
+    
+    // --- NUEVA LÓGICA ADAPTABLE ---
+    // Detecta si la pantalla es "estrecha" (móvil)
+    const isMobileLayout = canvas.width < 700;
+    
+    // Altura de la barra: más alta en móvil para dos líneas, más baja en escritorio
+    const barHeight = isMobileLayout ? 60 : 40;
+    
+    // Tamaño de fuente base
+    const baseFontSize = isMobileLayout ? 16 : 18;
+    
+    // Posiciones de texto
+    const padding = 10;
+    const line1Y = isMobileLayout ? 22 : 25; // Línea superior (o única línea en escritorio)
+    const line2Y = 45; // Solo para móvil
 
 
-    // 1. Dibujar la barra superior de información
+    // 1. Dibujar el fondo de la barra
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(0, 0, canvas.width, 40);
+    ctx.fillRect(0, 0, canvas.width, barHeight);
 
 
     ctx.fillStyle = 'white';
-    ctx.font = 'bold 18px Arial';
+    ctx.font = `bold ${baseFontSize}px Arial`;
 
 
+    // 2. Bloque 1: Info del Jugador (Vida/Kills)
     ctx.textAlign = 'left';
-    ctx.fillText(`Vida: ${player && player.health > 0 ? player.health : 0} | Kills: ${player ? player.kills : 0}`, 10, 25);
+    const health = player && player.health > 0 ? player.health : 0;
+    const kills = player ? player.kills : 0;
+    ctx.fillText(`Vida: ${health} | Kills: ${kills}`, padding, line1Y);
 
 
-    ctx.textAlign = 'center';
-    ctx.fillText(`Puntuación: ${serverSnapshot.score} | Oleada: ${serverSnapshot.wave}`, canvas.width / 2, 25);
+    // 3. Bloque 2: Info de Partida (Puntuación/Oleada)
+    const scoreText = `Puntuación: ${serverSnapshot.score} | Oleada: ${serverSnapshot.wave}`;
+    
+    if (isMobileLayout) {
+        // En móvil: Poner en la segunda línea, alineado a la izquierda
+        ctx.textAlign = 'left';
+        ctx.fillText(scoreText, padding, line2Y);
+    } else {
+        // En escritorio: Poner en el centro de la primera línea
+        ctx.textAlign = 'center';
+        ctx.fillText(scoreText, canvas.width / 2, line1Y);
+    }
 
 
+    // 4. Bloque 3: Nombre del Jugador
     ctx.textAlign = 'right';
-    let xRight = canvas.width - 10;
-
-
     const myInfo = clientState.playersInLobby?.find(p => p.id === clientState.me.id);
     const myName = myInfo ? myInfo.name : 'Desconocido';
 
 
     ctx.fillStyle = player?.health > 0 ? 'cyan' : '#F44336';
-    ctx.fillText(`${myName}: ${clientState.me.id?.substring(0, 4)}`, xRight, 25);
+    ctx.fillText(`${myName}`, canvas.width - padding, line1Y);
 
 
-    // 2. Dibujar el minimapa
-    drawMinimap(ctx, player);
+    // 5. Dibujar el minimapa (pasando la nueva altura de la barra)
+    drawMinimap(ctx, player, barHeight);
 }
 
 
@@ -703,90 +744,110 @@ function drawHUD(player) {
 function createMinimapBackground() {
     if (!clientState.mapRenderer) return;
 
+
     const mapData = clientState.mapRenderer.map;
     const gridSize = mapData.length;
 
-    // Crear un canvas del tamaño exacto de la cuadrícula
+
     const mapCanvas = document.createElement('canvas');
     mapCanvas.width = gridSize;
     mapCanvas.height = gridSize;
     const mapCtx = mapCanvas.getContext('2d');
 
-    // Dibujar el fondo (muros)
-    mapCtx.fillStyle = '#222'; // Color del muro
+
+    mapCtx.fillStyle = '#222'; 
     mapCtx.fillRect(0, 0, gridSize, gridSize);
 
-    // Dibujar el suelo
-    mapCtx.fillStyle = '#555'; // Color del suelo (más claro que el muro)
+
+    mapCtx.fillStyle = '#555'; 
     for (let y = 0; y < gridSize; y++) {
         for (let x = 0; x < gridSize; x++) {
-            if (mapData[y][x] === 0) { // 0 = Suelo
+            if (mapData[y][x] === 0) { 
                 mapCtx.fillRect(x, y, 1, 1);
             }
         }
     }
-    
+
+
     clientState.minimapCanvas = mapCanvas;
 }
 
 
 /**
  * Dibuja el minimapa en la esquina superior derecha.
+ * --- v1.2: MODIFICADO ---
+ * - Acepta 'hudBarHeight' para posicionarse dinámicamente.
+ * - Cambiado el color de 'otros jugadores' a azul.
  */
-function drawMinimap(ctx, me) {
+function drawMinimap(ctx, me, hudBarHeight = 40) {
     if (!clientState.mapRenderer || !clientState.minimapCanvas || !me) {
-        return; // Aún no estamos listos para dibujar
+        return; 
     }
 
-    const MINIMAP_SIZE = 150; // Tamaño del minimapa en píxeles
-    const MINIMAP_MARGIN = 20; // Margen desde los bordes
-    
-    // Posición debajo de la barra de HUD (40px)
+
+    const MINIMAP_SIZE = 150; 
+    const MINIMAP_MARGIN = 20; 
+
+
+    // --- MODIFICADO ---
+    // Posición Y basada en la altura de la barra de HUD
     const minimapX = canvas.width - MINIMAP_SIZE - MINIMAP_MARGIN;
-    const minimapY = 40 + MINIMAP_MARGIN;
+    const minimapY = hudBarHeight + MINIMAP_MARGIN; 
+
 
     const mapWorldSize = clientState.mapRenderer.mapWorldSize;
-    
-    // Ratio para convertir coordenadas del mundo a coordenadas del minimapa
     const ratio = MINIMAP_SIZE / mapWorldSize;
 
-    // 1. Guardar contexto y crear un área de recorte (clipping)
+
+    // 1. Guardar contexto y crear área de recorte
     ctx.save();
     ctx.beginPath();
-    ctx.rect(minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
-    ctx.clip(); // No dibujar nada fuera de este rectángulo
+    // Asegurarse de que el minimapa no se dibuje sobre el HUD si la pantalla es muy pequeña
+    if (minimapY < canvas.height - MINIMAP_SIZE) {
+        ctx.rect(minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
+        ctx.clip(); 
+    } else {
+        ctx.restore(); // No dibujar si no hay espacio
+        return;
+    }
 
-    // 2. Dibujar el fondo del minimapa (el canvas pre-renderizado)
-    // Esto es muy rápido porque es solo una imagen
+
+    // 2. Dibujar fondo del minimapa
     ctx.drawImage(clientState.minimapCanvas, minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
+
 
     // 3. Dibujar Zombies
     ctx.fillStyle = '#F44336'; // Rojo
     clientState.interpolatedEntities.zombies.forEach(zombie => {
         const dotX = minimapX + (zombie.x * ratio);
         const dotY = minimapY + (zombie.y * ratio);
-        ctx.fillRect(dotX - 1, dotY - 1, 2, 2); // Punto de 2x2
+        ctx.fillRect(dotX - 1, dotY - 1, 2, 2); 
     });
 
+
     // 4. Dibujar otros jugadores
-    ctx.fillStyle = '#e34747'; // Rojo claro (color de 'otros' en entities.js)
+    // --- MODIFICADO ---
+    ctx.fillStyle = '#477be3'; // Azul oscuro (color de 'otros' en entities.js)
     clientState.interpolatedEntities.players.forEach(player => {
-        if (player.id === me.id) return; // Saltar, 'me' se dibuja al final
+        if (player.id === me.id) return; 
         const dotX = minimapX + (player.x * ratio);
         const dotY = minimapY + (player.y * ratio);
-        ctx.fillRect(dotX - 1, dotY - 1, 3, 3); // Punto de 3x3
+        ctx.fillRect(dotX - 1, dotY - 1, 3, 3); 
     });
+
 
     // 5. Dibujar al jugador local (encima de todo)
     ctx.fillStyle = '#2596be'; // Azul cian (color de 'me' en entities.js)
     const meDotX = minimapX + (me.x * ratio);
     const meDotY = minimapY + (me.y * ratio);
-    ctx.fillRect(meDotX - 2, meDotY - 2, 4, 4); // Punto de 4x4 (más grande)
+    ctx.fillRect(meDotX - 2, meDotY - 2, 4, 4); 
 
-    // 6. Restaurar el contexto (quitar el clipping)
+
+    // 6. Restaurar el contexto
     ctx.restore();
 
-    // 7. Dibujar el borde (después de restaurar)
+
+    // 7. Dibujar el borde
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.lineWidth = 1;
     ctx.strokeRect(minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
@@ -810,13 +871,14 @@ function updateUI() {
     const settingsScreen = document.getElementById('settingsScreen');
     const lobbyScreen = document.getElementById('lobbyScreen');
     const gameOverScreen = document.getElementById('gameOverScreen');
-    const roomListScreen = document.getElementById('roomListScreen'); // NUEVO
+    const roomListScreen = document.getElementById('roomListScreen'); 
+
 
     menuScreen.style.display = 'none';
     settingsScreen.style.display = 'none';
     lobbyScreen.style.display = 'none';
     gameOverScreen.style.display = 'none';
-    roomListScreen.style.display = 'none'; // NUEVO
+    roomListScreen.style.display = 'none'; 
     canvas.style.display = 'none';
 
 
@@ -831,7 +893,7 @@ function updateUI() {
         canvas.style.display = 'block';
     } else if (clientState.currentState === 'gameOver') {
         gameOverScreen.style.display = 'flex';
-    } else if (clientState.currentState === 'roomList') { // NUEVO
+    } else if (clientState.currentState === 'roomList') { 
         roomListScreen.style.display = 'flex';
     }
 }
@@ -869,33 +931,37 @@ function updateLobbyDisplay() {
     document.getElementById('lobbyRoomId').textContent = `Sala ID: ${clientState.roomId}`;
 }
 
+
 /**
- * NUEVA FUNCIÓN: Rellena la lista de salas activas
+ * Rellena la lista de salas activas
  */
 function populateRoomList(games) {
     const container = document.getElementById('roomListContainer');
     if (!container) return;
 
-    container.innerHTML = ''; // Limpiar lista anterior
+
+    container.innerHTML = ''; 
+
 
     if (games.length === 0) {
         container.innerHTML = '<p style="padding: 20px; color: #aaa; text-align: center;">No hay salas activas. ¡Crea una!</p>';
         return;
     }
 
+
     games.forEach(game => {
         const roomItem = document.createElement('div');
         roomItem.className = 'room-item';
-        
-        // Info de la sala
+
+
         const roomInfo = document.createElement('div');
         roomInfo.className = 'room-info';
         roomInfo.innerHTML = `
             <strong>Sala: ${game.id}</strong>
             <span>Host: ${game.hostName} (${game.playerCount} jugador${game.playerCount > 1 ? 'es' : ''})</span>
         `;
-        
-        // Botón de unirse
+
+
         const joinButton = document.createElement('button');
         joinButton.textContent = 'Unirse';
         joinButton.className = 'room-join-button';
@@ -904,6 +970,7 @@ function populateRoomList(games) {
             clientState.me.name = playerName;
             socket.emit('joinGame', game.id, playerName);
         };
+
 
         roomItem.appendChild(roomInfo);
         roomItem.appendChild(joinButton);
@@ -938,7 +1005,6 @@ socket.on('joinSuccess', (game) => {
 
 
 socket.on('joinFailed', (message) => {
-    // No usamos alert, mostramos error en el input de ID
     const input = document.getElementById('roomIdInput');
     if (input) {
         input.value = '';
@@ -959,8 +1025,8 @@ socket.on('joinFailed', (message) => {
 socket.on('lobbyUpdate', (game) => {
     clientState.playersInLobby = game.players;
     clientState.me.isHost = game.players.find(p => p.id === clientState.me.id)?.isHost || false;
-    
-    // Si estamos en el lobby, actualizamos
+
+
     if (clientState.currentState === 'lobby') {
         updateUI();
     }
@@ -970,9 +1036,10 @@ socket.on('lobbyUpdate', (game) => {
 socket.on('gameStarted', (data) => {
     clientState.currentState = 'playing';
     clientState.mapRenderer = new MapRenderer(data.mapData, data.cellSize);
-    
-    // Crear el fondo del minimapa (solo una vez)
+
+
     createMinimapBackground(); 
+
 
     clientState.interpolatedEntities.players.clear();
     clientState.interpolatedEntities.zombies.clear();
@@ -1018,9 +1085,7 @@ socket.on('playerDisconnected', (playerId) => {
     console.log(`Jugador desconectado: ${playerId}`);
 });
 
-/**
- * NUEVO LISTENER: Recibe la lista de salas del servidor
- */
+
 socket.on('gameList', (games) => {
     populateRoomList(games);
 });
@@ -1033,13 +1098,10 @@ document.getElementById('createGameButton').addEventListener('click', () => {
     socket.emit('createGame', { name: playerName, config: gameConfig });
 });
 
-/**
- * NUEVO: Botón para abrir el buscador de salas
- */
+
 document.getElementById('browseGamesButton').addEventListener('click', () => {
     clientState.currentState = 'roomList';
     updateUI();
-    // Mostrar un "cargando" y pedir la lista
     const container = document.getElementById('roomListContainer');
     if (container) {
         container.innerHTML = '<p style="padding: 20px; color: #aaa; text-align: center;">Buscando salas...</p>';
@@ -1047,9 +1109,7 @@ document.getElementById('browseGamesButton').addEventListener('click', () => {
     socket.emit('requestGameList');
 });
 
-/**
- * NUEVO: Botón para refrescar la lista de salas
- */
+
 document.getElementById('refreshRoomListButton').addEventListener('click', () => {
     const container = document.getElementById('roomListContainer');
     if (container) {
@@ -1058,9 +1118,7 @@ document.getElementById('refreshRoomListButton').addEventListener('click', () =>
     socket.emit('requestGameList');
 });
 
-/**
- * NUEVO: Botón para volver al menú desde la lista de salas
- */
+
 document.getElementById('backToMenuFromRoomListButton').addEventListener('click', () => {
     clientState.currentState = 'menu';
     updateUI();
@@ -1068,11 +1126,9 @@ document.getElementById('backToMenuFromRoomListButton').addEventListener('click'
 
 
 document.getElementById('joinGameButton').addEventListener('click', () => {
-    // Esta es ahora "Unirse por ID"
     const roomId = document.getElementById('roomIdInput').value.toUpperCase();
     const playerName = document.getElementById('playerNameInput').value || 'Anónimo';
     if (!roomId || roomId.length !== 4) {
-        // Mostrar error visual en lugar de alert
         const input = document.getElementById('roomIdInput');
         input.style.borderColor = '#F44336';
         input.style.boxShadow = '0 0 10px rgba(244, 67, 54, 0.5)';
@@ -1096,22 +1152,21 @@ document.getElementById('settingsButton').addEventListener('click', () => {
 document.getElementById('saveSettingsButton').addEventListener('click', () => {
     readConfigFromUI();
     saveConfig();
-    updateControlMethod(); // ACTUALIZAR método de control al guardar
+    updateControlMethod(); 
     clientState.currentState = 'menu';
     updateUI();
 });
 
 
 document.getElementById('resetSettingsButton').addEventListener('click', () => {
-    // Guardar el controlType actual para no resetearlo
     const currentControl = gameConfig.controlType;
     gameConfig = {...DEFAULT_CONFIG};
-    // Restaurarlo
     gameConfig.controlType = currentControl;
-    
+
+
     applyConfigToUI();
     saveConfig();
-    updateControlMethod(); // ACTUALIZAR
+    updateControlMethod(); 
 });
 
 
@@ -1132,6 +1187,6 @@ document.getElementById('backToMenuButton').addEventListener('click', () => {
 
 
 // --- INICIO ---
-loadConfig(); // Esto ahora llama a updateControlMethod() internamente
+loadConfig(); 
 updateUI();
 requestAnimationFrame(gameLoopRender);

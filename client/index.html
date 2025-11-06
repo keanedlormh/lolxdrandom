@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zombie Shooter Multijugador</title>
 
+
     <!-- FUENTES DE LA ESTÉTICA "APOCALIPSIS" -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+
 
     <!-- ESTILOS DE LA ESTÉTICA "APOCALIPSIS" -->
     <style>
@@ -19,12 +21,14 @@
             --color-fondo-secundario: #111111;
             --color-menu: rgba(59, 0, 59, 0.95); /* Violeta Oscuro semi-transparente */
             --color-texto: #e0e0e8;
-            
+
+
             /* Acentos */
             --color-acento-principal: #FF7518;  /* Naranja Butano */
             --color-acento-secundario: #FF0000; /* Rojo */
             --color-acento-terciario: #4A044E;  /* Violeta Oscuro */
             --color-acento-cuaternario: #800000; /* Granate */
+
 
             /* --- Colores Primarios (Naranja) --- */
             --color-primario: #FF7518;
@@ -33,6 +37,7 @@
             --color-primario-sombra-oscura: #600000; /* Sombra 3D (Granate Oscuro) */
             --color-primario-texto: #000000; /* Texto negro para alto contraste */
 
+
             /* --- Colores Peligro (Rojo) --- */
             --color-peligro: #D90000;
             --color-peligro-hover: #FF3333;
@@ -40,16 +45,19 @@
             --color-peligro-sombra-oscura: #600000; /* Sombra 3D (Granate Oscuro) */
             --color-peligro-texto: #FFFFFF; /* Texto blanco */
 
+
             /* --- Colores Secundarios (Granate) --- */
             --color-secundario: #800000;
             --color-secundario-hover: #A00000;
             --color-secundario-sombra: rgba(128, 0, 0, 0.5);
             --color-secundario-sombra-oscura: #400000; /* Sombra 3D (Granate más oscuro) */
             --color-secundario-texto: #FFFFFF; /* Texto blanco */
-            
+
+
             --fuente-titulos: 'Orbitron', sans-serif;
             --fuente-cuerpo: 'Rajdhani', sans-serif;
         }
+
 
         /* --- ANIMACIONES --- */
         @keyframes glitch {
@@ -59,15 +67,18 @@
             75% { text-shadow: -2px -2px var(--color-acento-principal), 2px 2px var(--color-acento-secundario); }
         }
 
+
         @keyframes pulse-neon {
             0%, 100% { box-shadow: 0 0 10px var(--color-primario-sombra), 0 0 20px var(--color-primario-sombra), inset 0 0 10px rgba(255, 117, 24, 0.2); }
             50% { box-shadow: 0 0 20px var(--color-primario-sombra), 0 0 40px var(--color-primario-sombra), inset 0 0 20px rgba(255, 117, 24, 0.3); }
         }
 
+
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-10px); }
         }
+
 
         /* --- ESTILOS GLOBALES --- */
         body, html {
@@ -93,6 +104,7 @@
             position: relative;
         }
 
+
         /* --- ESTILOS DE MENÚS --- */
         .menu-container {
             position: absolute;
@@ -100,18 +112,21 @@
                 linear-gradient(135deg, rgba(20, 0, 20, 0.98) 0%, rgba(59, 0, 59, 0.95) 100%);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            
+
+
             border: 2px solid transparent;
             border-image: linear-gradient(135deg, var(--color-acento-principal), var(--color-acento-terciario), var(--color-acento-secundario)) 1;
             clip-path: polygon(
                 0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px,
                 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px)
             );
-            
+
+
             box-shadow: 
                 0 0 30px rgba(255, 117, 24, 0.4),
                 0 0 60px rgba(74, 4, 78, 0.3),
                 inset 0 0 40px rgba(0, 0, 0, 0.8);
+
 
             padding: 40px;
             display: flex;
@@ -126,6 +141,7 @@
             animation: float 6s ease-in-out infinite;
         }
 
+
         .menu-container::-webkit-scrollbar {
             width: 8px;
         }
@@ -136,6 +152,7 @@
             background: var(--color-acento-principal);
             box-shadow: 0 0 10px var(--color-acento-principal);
         }
+
 
         /* Título de Menú (Solo para #menuScreen) */
         #menuScreen h2 {
@@ -157,6 +174,7 @@
             animation: glitch 5s infinite;
         }
 
+
         #menuScreen h2::before {
             content: '';
             position: absolute;
@@ -168,6 +186,7 @@
             background: linear-gradient(90deg, transparent, var(--color-acento-principal), transparent);
             box-shadow: 0 0 10px var(--color-acento-principal);
         }
+
 
         /* Títulos para otros menús (Config, Lobby, etc.) - TAMAÑO REDUCIDO */
         .menu-container h2 {
@@ -183,6 +202,7 @@
             text-shadow: 0 0 10px var(--color-primario-sombra);
         }
 
+
         /* Subtítulos */
         .menu-container h3 {
             font-family: var(--fuente-titulos);
@@ -192,6 +212,7 @@
             font-size: 1.15em; 
             text-shadow: 0 0 10px var(--color-acento-secundario);
         }
+
 
         hr {
             border: 0;
@@ -203,8 +224,10 @@
             box-shadow: 0 0 10px var(--color-acento-terciario);
         }
 
+
         /* --- ESTILOS DE INPUTS Y BOTONES --- */
-        
+
+
         /* Inputs */
         input[type="text"], input[type="number"], select {
             padding: 14px;
@@ -223,6 +246,7 @@
             box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
         }
 
+
         input[type="text"]:focus, input[type="number"]:focus, select:focus {
             border-color: var(--color-acento-principal);
             box-shadow: 
@@ -231,6 +255,7 @@
             outline: none;
             background: linear-gradient(135deg, #0f0f1a 0%, #1a1a25 100%);
         }
+
 
         /* Corregir fondo blanco de autocompletar en Chrome */
         input:-webkit-autofill,
@@ -245,8 +270,10 @@
             font-size: 1.1em !important;
         }
 
+
         /* --- OPTIMIZACIÓN DE BOTONES --- */
-        
+
+
         /* Clase Base del Botón (CORREGIDA) */
         .btn {
             padding: 14px;
@@ -264,16 +291,19 @@
             overflow: hidden;
             clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
             transition: all 0.3s;
-            
+
+
             /* Solución de centrado vertical (SIN line-height: 1) */
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
+
         .btn-block {
             width: 100%;
         }
+
 
         .btn::before {
             content: '';
@@ -286,17 +316,21 @@
             transition: left 0.5s;
         }
 
+
         .btn:hover:not(:disabled)::before {
             left: 100%;
         }
+
 
         .btn:hover:not(:disabled) {
             transform: translateY(-3px);
         }
 
+
         .btn:active:not(:disabled) {
             transform: translateY(1px);
         }
+
 
         .btn:disabled {
             background: #1a1a1a !important;
@@ -305,6 +339,7 @@
             box-shadow: none !important;
             color: #555 !important;
         }
+
 
         /* Botón Primario (Naranja) */
         .btn-primary { 
@@ -324,6 +359,7 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.4);
         }
 
+
         /* Botón Secundario (Granate) */
         .btn-secondary { 
             background: linear-gradient(135deg, var(--color-secundario) 0%, var(--color-secundario-hover) 100%);
@@ -341,6 +377,7 @@
                 0 8px 0 var(--color-secundario-sombra-oscura),
                 inset 0 1px 0 rgba(255, 255, 255, 0.3);
         }
+
 
         /* Botón Peligro (Rojo) */
         .btn-danger { 
@@ -360,6 +397,7 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.4);
         }
 
+
         /* --- PANTALLA DE JUEGO --- */
         #gameCanvas {
             display: block;
@@ -371,6 +409,7 @@
                 0 0 60px rgba(74, 4, 78, 0.4),
                 inset 0 0 40px rgba(0, 0, 0, 0.9);
         }
+
 
         /* --- LOBBY --- */
         #lobbyPlayerList {
@@ -385,6 +424,7 @@
             box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
         }
 
+
         #lobbyPlayerList li {
             padding: 10px 8px;
             border-bottom: 1px solid rgba(255, 117, 24, 0.2);
@@ -396,6 +436,7 @@
             border-bottom: none;
         }
 
+
         #lobbyRoomId {
             font-weight: 700;
             font-size: 1.2em; 
@@ -403,6 +444,7 @@
             text-align: center;
             text-shadow: 0 0 10px var(--color-acento-principal);
         }
+
 
         #hostConfigInfo {
             margin: 15px 0;
@@ -418,6 +460,7 @@
                 inset 0 2px 10px rgba(0, 0, 0, 0.5);
         }
 
+
         /* --- PANTALLA DE AJUSTES --- */
         .settings-group {
             margin: 20px 0;
@@ -428,14 +471,16 @@
             text-align: left;
             box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
         }
-        
+
+
         .setting-item {
             margin: 12px 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        
+
+
         .setting-item label {
             flex: 1;
             font-size: 1.0em; 
@@ -443,6 +488,44 @@
             text-transform: uppercase;
             letter-spacing: 1px;
         }
+        
+        /* --- v1.2: Estilo para el nuevo slider --- */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 5px;
+            outline: none;
+            transition: opacity 0.2s;
+        }
+
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            background: var(--color-acento-principal);
+            border: 2px solid #000;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--color-primario-sombra);
+        }
+
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: var(--color-acento-principal);
+            border: 2px solid #000;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--color-primario-sombra);
+        }
+        /* --- FIN v1.2 --- */
+        
         .setting-item input[type="number"],
         .setting-item select {
             width: 100px;
@@ -454,17 +537,20 @@
             width: 160px;
         }
 
+
         .preset-buttons {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 12px;
             margin-bottom: 20px;
         }
-        
+
+
         .preset-buttons .btn { /* Estilo específico para presets */
             font-size: 0.9em; 
             padding: 12px;
         }
+
 
         /* --- LISTA DE SALAS --- */
         #roomListContainer {
@@ -480,6 +566,7 @@
             box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
         }
 
+
         .room-item {
             display: flex;
             justify-content: space-between;
@@ -489,20 +576,24 @@
             cursor: pointer;
             transition: all 0.3s;
         }
-        
+
+
         .room-item:hover {
             background: linear-gradient(90deg, rgba(255, 117, 24, 0.1) 0%, rgba(74, 4, 78, 0.1) 100%);
             border-left: 4px solid var(--color-acento-principal);
             box-shadow: inset 0 0 20px rgba(255, 117, 24, 0.2);
         }
 
+
         .room-item:last-child {
             border-bottom: none;
         }
 
+
         .room-info {
             text-align: left;
         }
+
 
         .room-info strong {
             font-size: 1.15em; 
@@ -511,12 +602,14 @@
             text-shadow: 0 0 8px var(--color-acento-principal);
         }
 
+
         .room-info span {
             font-size: 1em;
             color: #bbb;
             display: block;
             margin-top: 5px;
         }
+
 
         /* Estilo para el botón de unirse (usado por JS) */
         .room-join-button {
@@ -526,7 +619,8 @@
             text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
             box-shadow: 0 0 20px var(--color-primario-sombra), 0 6px 0 var(--color-primario-sombra-oscura);
             border-top: 2px solid rgba(255, 255, 255, 0.2);
-            
+
+
             /* Sobreescritura de tamaño */
             padding: 10px 16px;
             font-size: 0.95em; 
@@ -538,10 +632,13 @@
         }
 
 
+
+
         .room-list-actions {
             display: flex;
             gap: 15px;
         }
+
 
         #finalScore, #finalWave {
             color: var(--color-acento-principal);
@@ -549,12 +646,14 @@
             text-shadow: 0 0 10px var(--color-acento-principal);
         }
 
+
         /* --- MEDIA QUERY PARA MÓVILES (PORTRAIT) --- */
         @media (max-width: 600px) {
             .menu-container {
                 padding: 25px;
                 width: 95%;
             }
+
 
             /* El h2 grande se ajusta */
             #menuScreen h2 {
@@ -566,10 +665,12 @@
                 font-size: 1.8em; /* Reducido */
             }
 
+
             .btn, input[type="text"], input[type="number"], select {
                 padding: 13px;
                 font-size: 1.0em;
             }
+
 
             .preset-buttons {
                 grid-template-columns: 1fr;
@@ -577,6 +678,7 @@
             .preset-buttons .btn {
                 font-size: 1.0em; /* Hacerlos un poco más grandes en vertical */
             }
+
 
             .setting-item {
                 flex-direction: column;
@@ -592,6 +694,16 @@
             #setting_controlType {
                 width: 100%;
             }
+            /* Acomodar el slider de oleadas en móvil */
+            #waveMultiplierValue {
+                margin-left: 0;
+                margin-top: 8px;
+                text-align: left !important;
+            }
+            input[type="range"]#setting_waveMultiplier_slider {
+                margin-top: 15px;
+            }
+
 
             .room-item {
                 flex-direction: column;
@@ -602,13 +714,15 @@
                 width: 100%;
             }
         }
-        
+
+
         /* --- MEDIA QUERY PARA APAISADO (LIMPIADA) --- */
         @media (max-height: 500px) and (orientation: landscape) {
             .menu-container {
                 padding: 15px 25px; 
                 max-height: 95vh;
             }
+
 
             /* El h2 grande se ajusta */
             #menuScreen h2 {
@@ -624,9 +738,11 @@
                 margin-bottom: 10px;
             }
 
+
             hr {
                 margin: 10px 0; 
             }
+
 
             /* Regla para inputs/select */
             input[type="text"], input[type="number"], select {
@@ -635,6 +751,7 @@
                 font-size: 0.95em;
             }
 
+
             /* Regla apaisada para botones */
             .btn {
                 padding: 10px; 
@@ -642,60 +759,77 @@
                 font-size: 0.95em;
             }
 
+
             .menu-container h3 {
                 font-size: 1.0em; 
             }
 
+
             .setting-item label {
                 font-size: 0.9em; 
             }
-            
+
+
             .preset-buttons .btn {
                 font-size: 0.8em; 
                 padding: 10px;
             }
         }
 
+
     </style>
 </head>
 <body>
+
 
     <!--
         EL HTML SIGUE USANDO LAS CLASES OPTIMIZADAS
     -->
 
+
     <div id="gameScreen">
         <canvas id="gameCanvas"></canvas>
     </div>
 
+
     <div id="menuScreen" class="menu-container">
         <h2>Zombie Shooter</h2>
 
+
         <input type="text" id="playerNameInput" placeholder="INTRODUCE TU NOMBRE" maxlength="15" value="Player1">
 
+
         <hr>
+
 
         <button id="createGameButton" class="btn btn-primary btn-block">Crear Partida</button>
         <button id="browseGamesButton" class="btn btn-primary btn-block">Buscar Partidas</button>
 
+
         <hr>
+
 
         <input type="text" id="roomIdInput" placeholder="UNIRSE POR ID (EJ: ABCD)" maxlength="4" style="text-transform: uppercase;">
         <button id="joinGameButton" class="btn btn-primary btn-block">Unirse por ID</button>
 
+
         <hr>
+
 
         <button id="settingsButton" class="btn btn-secondary btn-block">⚙️ Configuración</button>
     </div>
 
+
     <div id="settingsScreen" class="menu-container" style="display: none;">
         <h2>Configuración</h2> 
-        
+
+
         <div class="preset-buttons">
             <button onclick="applyPreset('easy')" class="btn btn-primary">Fácil</button>
             <button onclick="applyPreset('normal')" class="btn btn-secondary">Normal</button>
             <button onclick="applyPreset('hard')" class="btn btn-danger">Difícil</button>
         </div>
+
 
         <div class="settings-group">
             <h3>Jugador</h3>
@@ -721,6 +855,7 @@
             </div>
         </div>
 
+
         <div class="settings-group">
             <h3>Zombies</h3>
             <div class="setting-item">
@@ -741,6 +876,7 @@
             </div>
         </div>
 
+
         <div class="settings-group">
             <h3>Combate</h3>
             <div class="setting-item">
@@ -752,6 +888,7 @@
                 <input type="number" id="setting_bulletSpeed" min="10" max="40" value="25">
             </div>
         </div>
+
 
         <div class="settings-group">
             <h3>Mapa</h3>
@@ -777,47 +914,70 @@
             </div>
         </div>
 
+
         <div class="settings-group">
             <h3>Oleadas</h3>
             <div class="setting-item">
                 <label>Zombies Iniciales:</label>
                 <input type="number" id="setting_initialZombies" min="3" max="20" value="5">
             </div>
+
+
+            <!-- --- v1.2: MODIFICADO --- -->
+            <!-- Se cambió el label y se añadió un span para el valor -->
             <div class="setting-item">
-                <label>Multiplicador Oleada:</label>
-                <input type="number" id="setting_waveMultiplier" min="1" max="5" value="3" step="0.5">
+                <label>Aum. Zombies / Oleada:</label>
+                <span id="waveMultiplierValue" style="color: var(--color-acento-principal); font-weight: bold; min-width: 50px; text-align: right;">+50%</span>
             </div>
+            <!-- Se reemplazó el input[type=number] por un input[type=range] -->
+            <input type="range" id="setting_waveMultiplier_slider" min="10" max="100" value="50" step="1" style="width: 100%; margin-top: 5px;">
+            
+            <!-- Campo oculto para mantener compatibilidad -->
+            <input type="hidden" id="setting_waveMultiplier" value="1.5">
+            <!-- --- FIN MODIFICACIÓN v1.2 --- -->
+
+
         </div>
 
+
         <hr>
+
 
         <button id="saveSettingsButton" class="btn btn-primary btn-block">Guardar y Volver</button>
         <button id="resetSettingsButton" class="btn btn-danger btn-block">Restaurar Defaults</button>
     </div>
 
+
     <div id="lobbyScreen" class="menu-container" style="display: none;">
         <h2>Sala de Espera</h2>
         <p id="lobbyRoomId"></p>
 
+
         <h3>Jugadores:</h3>
         <ul id="lobbyPlayerList"></ul>
+
 
         <div id="hostConfigInfo" style="display: none;">
             <strong>Configuración Activa:</strong>
             <div id="configSummary" style="margin-top: 5px;"></div>
         </div>
 
+
         <hr>
+
 
         <button id="startButton" class="btn btn-primary btn-block">Iniciar Partida</button>
         <button id="backToMenuButton" class="btn btn-danger btn-block">Volver al Menú</button>
     </div>
 
+
     <div id="roomListScreen" class="menu-container" style="display: none;">
         <h2>Salas Activas</h2>
 
+
         <div id="roomListContainer">
             </div>
+
 
         <div class="room-list-actions">
             <!-- Estos botones no usan .btn-block para estar uno al lado del otro -->
@@ -827,18 +987,23 @@
     </div>
 
 
+
+
     <div id="gameOverScreen" class="menu-container" style="display: none;">
         <h2>GAME OVER</h2>
         <p>Puntuación Final: <span id="finalScore" style="font-weight: bold;">0</span></p>
         <p>Oleada Alcanzada: <span id="finalWave" style="font-weight: bold;">0</span></p>
 
+
         <button onclick="window.location.reload()" class="btn btn-secondary btn-block">Jugar de Nuevo</button>
     </div>
+
 
     <!-- SCRIPTS DE TU VERSIÓN FUNCIONAL -->
     <script src="/socket.io/socket.io.js"></script> 
     <script src="js/entities.js"></script>
     <script src="js/game.js"></script>
+
 
 </body>
 </html>

@@ -1,8 +1,15 @@
 /**
- * server/server.js - ACTUALIZADO v1.3 (Paso 3)
+ * server/server.js - ACTUALIZADO v1.4
  *
- * 1. (v1.3) Añadida 'coreBurstSpawnMultiplier' al DEFAULT_CONFIG
- * y a la lógica de creación de la sala.
+ * 1. (v1.3) Lógica de 'returnToLobby' y 'finished' (post-partida).
+ * 2. (v1.3) DEFAULT_CONFIG actualizado con las variables del Núcleo de 2 fases.
+ * 3. (v1.4) MODIFICADO 'joinGame':
+ * - Ahora permite unirse si `game.status === 'playing'`.
+ * - Si se une a una partida en juego:
+ * - Llama a `game.gameLogic.addPlayer()` para añadir al jugador
+ * en estado "pendiente".
+ * - Emite 'gameStarted' solo al nuevo jugador para que cargue el mapa.
+ * - Emite 'lobbyUpdate' a todos para actualizar el contador de jugadores.
  */
 
 
@@ -27,8 +34,9 @@ const activeGames = new Map();
 const userToRoom = new Map();
 
 
-// --- v1.3: MODIFICADO ---
+// --- v1.3: Configuración por defecto actualizada ---
 const DEFAULT_CONFIG = {
+    controlType: 'auto',
     playerHealth: 100,
     playerSpeed: 6,
     shootCooldown: 150,
@@ -158,12 +166,20 @@ io.on('connection', (socket) => {
     });
 
 
+    // --- v1.4: 'joinGame' MODIFICADO ---
     socket.on('joinGame', (roomId, playerName) => {
         const game = activeGames.get(roomId);
 
 
-        if (!game || game.status !== 'lobby') {
-            socket.emit('joinFailed', 'Sala no encontrada o partida iniciada.');
+        if (!game) {
+            socket.emit('joinFailed', 'Sala no encontrada.');
+            return;
+        }
+
+
+        // v1.4: Permitir unirse a 'lobby' o 'playing'
+        if (game.status !== 'lobby' && game.status !== 'playing') {
+            socket.emit('joinFailed', 'Sala no disponible.');
             return;
         }
 
@@ -175,22 +191,45 @@ io.on('connection', (socket) => {
 
 
         const newPlayer = new Player(socket.id, playerName);
-        game.players.push(newPlayer);
+        game.players.push(newPlayer); // Añadir a la lista general de la sala
         userToRoom.set(socket.id, roomId);
         socket.join(roomId);
 
 
-        console.log(`[LOBBY] ${playerName} se unio a sala ${roomId}`);
+        if (game.status === 'lobby') {
+            // Comportamiento normal: unirse al lobby
+            console.log(`[LOBBY] ${playerName} se unio a sala ${roomId}`);
+            socket.emit('joinSuccess', game.getLobbyData()); 
+            io.to(roomId).emit('lobbyUpdate', game.getLobbyData());
+        
+        } else if (game.status === 'playing') {
+            // v1.4: Comportamiento de "Unirse en Curso"
+            console.log(`[GAME] ${playerName} se unio a partida en curso ${roomId}`);
+            
+            // 1. Añadir jugador a la lógica del juego como "pendiente"
+            if (game.gameLogic) {
+                game.gameLogic.addPlayer(newPlayer, game.config);
+            }
 
 
-        socket.emit('joinSuccess', game.getLobbyData()); 
-        io.to(roomId).emit('lobbyUpdate', game.getLobbyData());
+            // 2. Enviar datos del mapa SÓLO al nuevo jugador
+            const mapData = {
+                mapData: game.gameLogic.map.map,
+                cellSize: game.gameLogic.map.cellSize
+            };
+            socket.emit('gameStarted', mapData); // El cliente cargará el juego
+
+
+            // 3. Notificar a todos (incluido el nuevo) del cambio en la sala
+            io.to(roomId).emit('lobbyUpdate', game.getLobbyData());
+        }
     });
 
 
     socket.on('requestGameList', () => {
         const joinableGames = Array.from(activeGames.values())
-            .filter(game => game.status === 'lobby')
+            // v1.4: Ahora se pueden unir a 'lobby' o 'playing'
+            .filter(game => game.status === 'lobby' || game.status === 'playing')
             .map(game => ({
                 id: game.id,
                 hostName: game.players.find(p => p.isHost)?.name || 'Desconocido',
@@ -212,6 +251,7 @@ io.on('connection', (socket) => {
 
             console.log(`[SALA] Jugador ${socket.id} abandono sala ${roomId}`);
             
+            // v1.4: Si el jugador estaba en una partida, removerlo de la lógica
             if (game.status === 'playing' && game.gameLogic) {
                 game.gameLogic.removePlayer(socket.id);
             }
@@ -259,6 +299,7 @@ io.on('connection', (socket) => {
             game.gameLogic.update(); 
 
 
+            // v1.4: isGameOver() ahora solo es true si todos los activos mueren
             if (game.gameLogic.isGameOver()) {
                 clearInterval(game.gameLoopInterval);
                 game.status = 'finished'; 
@@ -326,7 +367,6 @@ io.on('connection', (socket) => {
 
             if (game.status === 'playing' && game.gameLogic) {
                 game.gameLogic.removePlayer(socket.id);
-                io.to(roomId).emit('playerDisconnected', socket.id);
             }
 
 

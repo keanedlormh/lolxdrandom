@@ -50,11 +50,11 @@ class Entity {
 class Player extends Entity {
     constructor(id, x, y, isMe, name = "Jugador") {
         const radius = 15;
-        
+
         // --- v1.2: MODIFICADO ---
         // Ambos jugadores son azules. 'me' (local) es un azul brillante, 'otros' es un azul más oscuro.
         const color = isMe ? '#2596be' : '#477be3'; // Azul: local, Azul oscuro: otros
-        
+
         super(id, x, y, radius, color);
 
 

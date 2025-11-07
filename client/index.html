@@ -7,7 +7,6 @@
 
     <!-- FUENTES DE LA ESTÉTICA "APOCALIPSIS" -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <!-- CORREGIDO: "https://https://" -> "https://" -->
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
 
@@ -22,7 +21,7 @@
 
             --color-acento-principal: #FF7518;
             --color-acento-secundario: #FF0000;
-            --color-acento-terciario: #4A044E;
+            --color-acento-terciario: #4A044E; /* Violeta Oscuro */
             --color-acento-cuaternario: #800000;
 
             --color-primario: #FF7518;
@@ -193,7 +192,6 @@
             background: linear-gradient(135deg, #0f0f1a 0%, #1a1a25 100%);
         }
 
-        /* CORREGIDO: Fondo de autocompletar */
         input:-webkit-autofill,
         input:-webkit-autofill:hover, 
         input:-webkit-autofill:focus, 
@@ -206,7 +204,7 @@
             font-size: 1.1em !important;
         }
 
-        /* --- BOTONES --- */
+        /* --- BOTONES (v1.2 - Corregido con <span>) --- */
         .btn {
             padding: 14px;
             margin: 10px 0;
@@ -219,16 +217,22 @@
             letter-spacing: 2px;
             color: white;
             cursor: pointer;
-            position: relative;
+            position: relative; /* Clave para el centrado del span */
             overflow: hidden;
             clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
             transition: all 0.3s;
-            /* CORREGIDO: Propiedades de .btn base */
+            
+            /* Fallback de centrado (para botones sin span) */
             display: flex;
             align-items: center;
             justify-content: center;
-            line-height: normal;
-            text-align: center;
+            line-height: normal; /* v1.2: Añadido */
+            text-align: center;  /* v1.2: Añadido */
+        }
+        
+        .btn span {
+            position: relative; /* v1.2: Cambiado de absolute a relative */
+            z-index: 1;
         }
 
         .btn-block { width: 100%; }
@@ -242,6 +246,7 @@
             height: 100%;
             background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
             transition: left 0.5s;
+            z-index: 0;
         }
 
         .btn:hover:not(:disabled)::before { left: 100%; }
@@ -289,26 +294,6 @@
         .btn-danger:hover:not(:disabled) { 
             box-shadow: 0 0 30px var(--color-peligro-sombra), 0 8px 0 var(--color-peligro-sombra-oscura), inset 0 1px 0 rgba(255, 255, 255, 0.4);
         }
-
-        /* --- FIX: CENTRADO ABSOLUTO PARA SPAN INTERNO (Tu corrección) --- */
-        .btn span {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 100%;
-            text-align: center;
-            line-height: 1;
-            pointer-events: none; /* Para que el clic atraviese el span */
-        }
-
-        /* Caso especial para el botón de Configuración (icono + texto) */
-        #settingsButton span {
-            position: static; /* Anula el centrado absoluto */
-            transform: none;
-            width: auto;
-        }
-
 
         /* --- PANTALLA DE JUEGO --- */
         #gameCanvas {
@@ -387,6 +372,7 @@
             letter-spacing: 1px;
         }
 
+        /* Slider de Oleadas (v1.2) */
         input[type="range"] {
             -webkit-appearance: none;
             width: 100%;
@@ -486,20 +472,34 @@
             margin-top: 5px;
         }
 
+        /* Botón de unirse (Sin <span>) */
         .room-join-button {
+            /* Hereda de .btn-primary */
             background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-hover) 100%);
             color: var(--color-primario-texto);
             text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
             box-shadow: 0 0 20px var(--color-primario-sombra), 0 6px 0 var(--color-primario-sombra-oscura);
             border-top: 2px solid rgba(255, 255, 255, 0.2);
+            /* Sobreescritura de tamaño */
             padding: 10px 16px;
-            font-size: 0.95em;
+            font-size: 0.95em; 
             margin: 0;
             width: auto;
+            /* Hereda de .btn */
+            font-family: var(--fuente-titulos);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+            transition: all 0.3s;
+            border: none;
         }
         .room-join-button:hover:not(:disabled) {
-            box-shadow: 0 0 30px var(--color-primario-sombra), 0 8px 0 var(--color-primario-sombra-oscura);
+             box-shadow: 0 0 30px var(--color-primario-sombra), 0 8px 0 var(--color-primario-sombra-oscura);
+             transform: translateY(-3px);
         }
+
 
         .room-list-actions {
             display: flex;
@@ -511,6 +511,17 @@
             font-size: 1.3em;
             text-shadow: 0 0 10px var(--color-acento-principal);
         }
+        
+        /* v1.2: Contenedor para botones de Game Over */
+        .game-over-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .game-over-actions .btn {
+            flex: 1; /* Ocupar espacio equitativo */
+        }
+
 
         /* --- MEDIA QUERIES --- */
         @media (max-width: 600px) {
@@ -524,10 +535,16 @@
             .setting-item label { margin-bottom: 8px; }
             .setting-item input[type="number"], .setting-item select { width: 100%; }
             #setting_controlType { width: 100%; }
+            
+            /* v1.3: Ajuste responsive para config de oleadas */
             #waveMultiplierValue { margin-left: 0; margin-top: 8px; text-align: left !important; }
             input[type="range"]#setting_waveMultiplier_slider { margin-top: 15px; }
+            
             .room-item { flex-direction: column; align-items: flex-start; gap: 12px; }
             .room-join-button { width: 100%; }
+            
+            /* v1.2: Botones de Game Over en columna */
+            .game-over-actions { flex-direction: column; gap: 0; }
         }
 
         @media (max-height: 500px) and (orientation: landscape) {
@@ -550,11 +567,11 @@
         <canvas id="gameCanvas"></canvas>
     </div>
 
+    <!-- v1.2: Botones con <span> para centrado -->
     <div id="menuScreen" class="menu-container">
         <h2>Zombie Shooter</h2>
         <input type="text" id="playerNameInput" placeholder="INTRODUCE TU NOMBRE" maxlength="15" value="Player1">
         <hr>
-        <!-- HTML CORREGIDO: Botones con <span> -->
         <button id="createGameButton" class="btn btn-primary btn-block"><span>Crear Partida</span></button>
         <button id="browseGamesButton" class="btn btn-primary btn-block"><span>Buscar Partidas</span></button>
         <hr>
@@ -564,6 +581,7 @@
         <button id="settingsButton" class="btn btn-secondary btn-block"><span>⚙️ Configuración</span></button>
     </div>
 
+    <!-- v1.3: Añadida config de Núcleo -->
     <div id="settingsScreen" class="menu-container" style="display: none;">
         <h2>Configuración</h2> 
         <div class="preset-buttons">
@@ -602,12 +620,16 @@
         </div>
 
         <div class="settings-group">
-            <h3>Oleadas</h3>
+            <h3>Oleadas (v1.3)</h3>
             <div class="setting-item"><label>Zombies Iniciales:</label><input type="number" id="setting_initialZombies" min="3" max="20" value="5"></div>
-            <!-- v1.2: Slider de oleadas -->
             <div class="setting-item"><label>Aum. Zombies / Oleada:</label><span id="waveMultiplierValue" style="color: var(--color-acento-principal); font-weight: bold; min-width: 50px; text-align: right;">+50%</span></div>
             <input type="range" id="setting_waveMultiplier_slider" min="10" max="100" value="50" step="1" style="width: 100%; margin-top: 5px;">
             <input type="hidden" id="setting_waveMultiplier" value="1.5">
+            
+            <hr style="margin: 20px 0;">
+            
+            <div class="setting-item"><label>Vida Base del Núcleo:</label><input type="number" id="setting_coreBaseHealth" min="100" max="5000" value="500" step="50"></div>
+            <div class="setting-item"><label>Ritmo Aparición Base (ms):</label><input type="number" id="setting_coreBaseSpawnRate" min="1000" max="10000" value="5000" step="250"></div>
         </div>
 
         <hr>
@@ -615,6 +637,7 @@
         <button id="resetSettingsButton" class="btn btn-danger btn-block"><span>Restaurar Defaults</span></button>
     </div>
 
+    <!-- v1.2: Botones con <span> -->
     <div id="lobbyScreen" class="menu-container" style="display: none;">
         <h2>Sala de Espera</h2>
         <p id="lobbyRoomId"></p>
@@ -625,28 +648,33 @@
             <div id="configSummary" style="margin-top: 5px;"></div>
         </div>
         <hr>
-        <!-- BOTÓN CORREGIDO CON <span> -->
-        <button id="startButton" class="btn btn-primary btn-block"><span>INICIAR PARTIDA</span></button>
-        <button id="backToMenuButton" class="btn btn-danger btn-block"><span>VOLVER AL MENÚ</span></button>
+        <button id="startButton" class="btn btn-primary btn-block"><span>Iniciar Partida</span></button>
+        <button id="backToMenuButton" class="btn btn-danger btn-block"><span>Volver al Menú</span></button>
     </div>
 
+    <!-- v1.2: Botones con <span> -->
     <div id="roomListScreen" class="menu-container" style="display: none;">
         <h2>Salas Activas</h2>
-        <div id="roomListContainer"></div>
+        <div id="roomListContainer">
+            <!-- Contenido generado por JS -->
+        </div>
         <div class="room-list-actions">
             <button id="refreshRoomListButton" class="btn btn-secondary" style="flex: 1;"><span>Refrescar</span></button>
             <button id="backToMenuFromRoomListButton" class="btn btn-danger" style="flex: 1;"><span>Volver</span></button>
         </div>
     </div>
 
+
+    <!-- v1.2: Botones post-partida añadidos -->
     <div id="gameOverScreen" class="menu-container" style="display: none;">
         <h2>GAME OVER</h2>
         <p>Puntuación Final: <span id="finalScore" style="font-weight: bold;">0</span></p>
         <p>Oleada Alcanzada: <span id="finalWave" style="font-weight: bold;">0</span></p>
 
-        <!-- v1.2: Botones de post-partida -->
-        <button id="continueGameButton" class="btn btn-secondary btn-block"><span>Continuar en Sala</span></button>
-        <button id="exitToMenuButton" class="btn btn-danger btn-block"><span>Salir al Menú</span></button>
+        <div class="game-over-actions">
+            <button id="continueGameButton" class="btn btn-primary btn-block"><span>Continuar</span></button>
+            <button id="exitToMenuButton" class="btn btn-danger btn-block"><span>Salir al Menú</span></button>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script> 

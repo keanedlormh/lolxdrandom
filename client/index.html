@@ -356,12 +356,23 @@
             text-align: left;
             box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
         }
-
+        
+        /* v1.3: Reducir margen inferior de los items para sliders */
         .setting-item {
-            margin: 12px 0;
+            margin: 10px 0; 
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+        
+        .setting-item.slider-group {
+             margin-bottom: 0px; /* Sin margen inferior */
+        }
+        
+        input[type="range"].slider-control {
+            width: 100%; 
+            margin-top: 5px;
+            margin-bottom: 10px; /* Margen inferior para el slider */
         }
 
         .setting-item label {
@@ -403,6 +414,14 @@
             border-radius: 50%;
             cursor: pointer;
             box-shadow: 0 0 10px var(--color-primario-sombra);
+        }
+        
+        /* v1.3: Estilo para el span del valor del slider */
+        .slider-value {
+            color: var(--color-acento-principal); 
+            font-weight: bold; 
+            min-width: 55px; /* Aumentado para "x5.0" */
+            text-align: right;
         }
 
         .setting-item input[type="number"],
@@ -474,18 +493,15 @@
 
         /* Botón de unirse (Sin <span>) */
         .room-join-button {
-            /* Hereda de .btn-primary */
             background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-hover) 100%);
             color: var(--color-primario-texto);
             text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
             box-shadow: 0 0 20px var(--color-primario-sombra), 0 6px 0 var(--color-primario-sombra-oscura);
             border-top: 2px solid rgba(255, 255, 255, 0.2);
-            /* Sobreescritura de tamaño */
             padding: 10px 16px;
             font-size: 0.95em; 
             margin: 0;
             width: auto;
-            /* Hereda de .btn */
             font-family: var(--fuente-titulos);
             font-weight: 700;
             text-transform: uppercase;
@@ -536,14 +552,13 @@
             .setting-item input[type="number"], .setting-item select { width: 100%; }
             #setting_controlType { width: 100%; }
             
-            /* v1.3: Ajuste responsive para config de oleadas */
-            #waveMultiplierValue { margin-left: 0; margin-top: 8px; text-align: left !important; }
-            input[type="range"]#setting_waveMultiplier_slider { margin-top: 15px; }
+            /* v1.3: Ajuste responsive para sliders */
+            .slider-value { margin-left: 0; margin-top: 8px; text-align: left !important; }
+            input[type="range"].slider-control { margin-top: 15px; }
             
             .room-item { flex-direction: column; align-items: flex-start; gap: 12px; }
             .room-join-button { width: 100%; }
             
-            /* v1.2: Botones de Game Over en columna */
             .game-over-actions { flex-direction: column; gap: 0; }
         }
 
@@ -567,7 +582,6 @@
         <canvas id="gameCanvas"></canvas>
     </div>
 
-    <!-- v1.2: Botones con <span> para centrado -->
     <div id="menuScreen" class="menu-container">
         <h2>Zombie Shooter</h2>
         <input type="text" id="playerNameInput" placeholder="INTRODUCE TU NOMBRE" maxlength="15" value="Player1">
@@ -581,7 +595,7 @@
         <button id="settingsButton" class="btn btn-secondary btn-block"><span>⚙️ Configuración</span></button>
     </div>
 
-    <!-- v1.3: Añadida config de Núcleo -->
+    <!-- v1.3: Menú de configuración actualizado -->
     <div id="settingsScreen" class="menu-container" style="display: none;">
         <h2>Configuración</h2> 
         <div class="preset-buttons">
@@ -621,15 +635,26 @@
 
         <div class="settings-group">
             <h3>Oleadas (v1.3)</h3>
-            <div class="setting-item"><label>Zombies Iniciales:</label><input type="number" id="setting_initialZombies" min="3" max="20" value="5"></div>
-            <div class="setting-item"><label>Aum. Zombies / Oleada:</label><span id="waveMultiplierValue" style="color: var(--color-acento-principal); font-weight: bold; min-width: 50px; text-align: right;">+50%</span></div>
-            <input type="range" id="setting_waveMultiplier_slider" min="10" max="100" value="50" step="1" style="width: 100%; margin-top: 5px;">
-            <input type="hidden" id="setting_waveMultiplier" value="1.5">
-            
-            <hr style="margin: 20px 0;">
             
             <div class="setting-item"><label>Vida Base del Núcleo:</label><input type="number" id="setting_coreBaseHealth" min="100" max="5000" value="500" step="50"></div>
-            <div class="setting-item"><label>Ritmo Aparición Base (ms):</label><input type="number" id="setting_coreBaseSpawnRate" min="1000" max="10000" value="5000" step="250"></div>
+            <div class="setting-item"><label>Zombies Fase 1 (Oleada 1):</label><input type="number" id="setting_initialZombies" min="1" max="50" value="10"></div>
+            <div class="setting-item"><label>Ritmo Fase 2 (ms):</label><input type="number" id="setting_coreBaseSpawnRate" min="1000" max="10000" value="5000" step="250"></div>
+
+            <hr style="margin: 20px 0;">
+
+            <div class="setting-item slider-group">
+                <label>Aum. Zombies Fase 1:</label>
+                <span id="waveMultiplierValue" class="slider-value">+50%</span>
+            </div>
+            <input type="range" id="setting_waveMultiplier_slider" min="10" max="100" value="50" step="1" class="slider-control">
+            <input type="hidden" id="setting_waveMultiplier" value="1.5">
+            
+            <div class="setting-item slider-group" style="margin-top: 15px;">
+                <label>Ritmo Rápido (Fase 1):</label>
+                <span id="coreBurstSpawnMultiplierValue" class="slider-value">x2.5</span>
+            </div>
+            <input type="range" id="setting_coreBurstSpawnMultiplier_slider" min="110" max="500" value="250" step="10" class="slider-control">
+            <input type="hidden" id="setting_coreBurstSpawnMultiplier" value="2.5">
         </div>
 
         <hr>
@@ -637,7 +662,6 @@
         <button id="resetSettingsButton" class="btn btn-danger btn-block"><span>Restaurar Defaults</span></button>
     </div>
 
-    <!-- v1.2: Botones con <span> -->
     <div id="lobbyScreen" class="menu-container" style="display: none;">
         <h2>Sala de Espera</h2>
         <p id="lobbyRoomId"></p>
@@ -652,20 +676,15 @@
         <button id="backToMenuButton" class="btn btn-danger btn-block"><span>Volver al Menú</span></button>
     </div>
 
-    <!-- v1.2: Botones con <span> -->
     <div id="roomListScreen" class="menu-container" style="display: none;">
         <h2>Salas Activas</h2>
-        <div id="roomListContainer">
-            <!-- Contenido generado por JS -->
-        </div>
+        <div id="roomListContainer"></div>
         <div class="room-list-actions">
             <button id="refreshRoomListButton" class="btn btn-secondary" style="flex: 1;"><span>Refrescar</span></button>
             <button id="backToMenuFromRoomListButton" class="btn btn-danger" style="flex: 1;"><span>Volver</span></button>
         </div>
     </div>
 
-
-    <!-- v1.2: Botones post-partida añadidos -->
     <div id="gameOverScreen" class="menu-container" style="display: none;">
         <h2>GAME OVER</h2>
         <p>Puntuación Final: <span id="finalScore" style="font-weight: bold;">0</span></p>

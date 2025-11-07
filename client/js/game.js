@@ -1,16 +1,16 @@
 /**
- * client/js/game.js - ACTUALIZADO v1.2
+ * client/js/game.js - ACTUALIZADO v1.3 (Paso 1)
  *
  * Esta versión incluye:
- * 1. (v1.1) Corrección de 'calculateAimVector' (paralaje).
- * 2. (v1.2) Lógica del slider de oleadas (10-100% -> 1.1-2.0).
- * 3. (v1.2) Lógica de Game Over (Continuar/Salir).
- * 4. (v1.2) ¡REDISEÑO DE HUD!
- * - `drawHUD` y `drawMinimap` han sido modificados.
- * - El minimapa ahora está FIJO en la esquina superior derecha (sin margen).
- * - La barra de HUD (Vida, Puntos, etc.) ahora ocupa
- * el espacio restante a la izquierda del minimap.
- * - La barra de HUD sigue siendo adaptable (responsive) en ese espacio.
+ * 1. (v1.2) Corrección de 'calculateAimVector' (paralaje).
+ * 2. (v1.2) HUD adaptable (`drawHUD`).
+ * 3. (v1.2) Minimapa actualizado (color y posición).
+ * 4. (v1.2) Lógica del slider de oleadas (10-100% -> 1.1-2.0).
+ * 5. (v1.2) Lógica de Game Over (Continuar/Salir).
+ * 6. (v1.3) Añadidas nuevas variables de config (Core) a
+ * DEFAULT_CONFIG, load, save, apply, read, presets.
+ * 7. (v1.3) Añadido `clientState.zombieCoreEntity` para
+ * almacenar la nueva entidad.
  */
 
 
@@ -24,8 +24,8 @@ window.SCALE = SCALE;
 const SERVER_TICK_RATE = 30;
 
 
-// --- v1.2: MODIFICADO ---
-// El waveMultiplier ahora es 1.5 (un 50% de aumento) por defecto
+// --- v1.3: MODIFICADO ---
+// Añadidas variables del Núcleo
 const DEFAULT_CONFIG = {
     controlType: 'auto',
     playerHealth: 100,
@@ -41,7 +41,10 @@ const DEFAULT_CONFIG = {
     roomCount: 6,
     corridorWidth: 3,
     initialZombies: 5,
-    waveMultiplier: 1.5 // 50% de aumento
+    waveMultiplier: 1.5,
+    // v1.3: Nuevas variables
+    coreBaseHealth: 500,
+    coreBaseSpawnRate: 5000
 };
 
 
@@ -72,7 +75,7 @@ function saveConfig() {
 }
 
 
-// --- v1.2: MODIFICADO ---
+// --- v1.3: MODIFICADO ---
 // Aplicar configuración a los inputs del UI
 function applyConfigToUI() {
     document.getElementById('setting_controlType').value = gameConfig.controlType;
@@ -91,16 +94,19 @@ function applyConfigToUI() {
     document.getElementById('setting_initialZombies').value = gameConfig.initialZombies;
 
 
-    // Convertir el valor real (1.1 - 2.0) al valor del slider (10 - 100)
+    // v1.2: Slider de oleadas
     const sliderValue = Math.round((gameConfig.waveMultiplier - 1) * 100);
     document.getElementById('setting_waveMultiplier_slider').value = sliderValue;
     document.getElementById('waveMultiplierValue').textContent = `+${sliderValue}%`;
-    // El input oculto
     document.getElementById('setting_waveMultiplier').value = gameConfig.waveMultiplier;
+    
+    // v1.3: Nuevos inputs
+    document.getElementById('setting_coreBaseHealth').value = gameConfig.coreBaseHealth;
+    document.getElementById('setting_coreBaseSpawnRate').value = gameConfig.coreBaseSpawnRate;
 }
 
 
-// --- v1.2: MODIFICADO ---
+// --- v1.3: MODIFICADO ---
 // Leer configuración desde el UI
 function readConfigFromUI() {
     gameConfig.controlType = document.getElementById('setting_controlType').value;
@@ -117,15 +123,19 @@ function readConfigFromUI() {
     gameConfig.roomCount = parseInt(document.getElementById('setting_roomCount').value);
     gameConfig.corridorWidth = parseInt(document.getElementById('setting_corridorWidth').value);
     gameConfig.initialZombies = parseInt(document.getElementById('setting_initialZombies').value);
-
-    // Convertir el valor del slider (10 - 100) al valor real (1.1 - 2.0)
+    
+    // v1.2: Slider de oleadas
     const sliderValue = parseInt(document.getElementById('setting_waveMultiplier_slider').value);
     gameConfig.waveMultiplier = 1 + (sliderValue / 100);
+    
+    // v1.3: Nuevos inputs
+    gameConfig.coreBaseHealth = parseInt(document.getElementById('setting_coreBaseHealth').value);
+    gameConfig.coreBaseSpawnRate = parseInt(document.getElementById('setting_coreBaseSpawnRate').value);
 }
 
 
-// --- v1.2: MODIFICADO ---
-// Presets de dificultad actualizados a la nueva lógica de multiplicador
+// --- v1.3: MODIFICADO ---
+// Presets de dificultad actualizados
 window.applyPreset = function(preset) {
     let presetSettings = {};
     switch(preset) {
@@ -144,7 +154,9 @@ window.applyPreset = function(preset) {
                 roomCount: 5,
                 corridorWidth: 3,
                 initialZombies: 3,
-                waveMultiplier: 1.3 // 30%
+                waveMultiplier: 1.3, // 30%
+                coreBaseHealth: 300,
+                coreBaseSpawnRate: 6000
             };
             break;
         case 'normal':
@@ -167,7 +179,9 @@ window.applyPreset = function(preset) {
                 roomCount: 8,
                 corridorWidth: 2,
                 initialZombies: 8,
-                waveMultiplier: 1.8 // 80%
+                waveMultiplier: 1.8, // 80%
+                coreBaseHealth: 1000,
+                coreBaseSpawnRate: 3500
             };
             break;
     }
@@ -223,12 +237,14 @@ const clientState = {
         zombies: [],
         bullets: [],
         score: 0,
-        wave: 1
+        wave: 1,
+        zombieCore: null // v1.3: Añadido
     },
     interpolatedEntities: {
         players: new Map(),
         zombies: new Map()
     },
+    zombieCoreEntity: null, // v1.3: Añadido
     mapRenderer: null,
     minimapCanvas: null,
     cameraX: 0, 
@@ -496,16 +512,51 @@ function gameLoopRender(timestamp) {
         const interpolationFactor = Math.min(1, timeSinceLastSnapshot / serverSnapshotTime);
 
 
+        // v1.3: Actualizar el núcleo (no interpola)
+        updateCore(); 
         interpolateEntities(interpolationFactor);
+        
         drawGame(timeSinceLastSnapshot);
         sendInputToServer();
     }
 
 
     lastRenderTime = timestamp;
-    // v1.2: Solo pide el siguiente frame si el ID está activo
     if (animationFrameId) {
         animationFrameId = requestAnimationFrame(gameLoopRender);
+    }
+}
+
+
+/**
+ * v1.3: Nueva función para actualizar el estado del Núcleo
+ */
+function updateCore() {
+    const coreData = clientState.serverSnapshot.zombieCore;
+    
+    if (coreData) {
+        if (!clientState.zombieCoreEntity) {
+            // Crear la entidad visual del núcleo
+            clientState.zombieCoreEntity = new ZombieCore(
+                coreData.id,
+                coreData.x,
+                coreData.y,
+                coreData.size,
+                coreData.health,
+                coreData.maxHealth
+            );
+        } else {
+            // Actualizar la entidad existente (no interpola, solo actualiza)
+            const core = clientState.zombieCoreEntity;
+            core.x = coreData.x;
+            core.y = coreData.y;
+            core.health = coreData.health;
+            core.maxHealth = coreData.maxHealth;
+            core.size = coreData.size;
+        }
+    } else {
+        // No hay datos del núcleo, asegurarse que no exista
+        clientState.zombieCoreEntity = null;
     }
 }
 
@@ -634,6 +685,12 @@ function drawGame(deltaTime) {
     }
 
 
+    // v1.3: Dibujar el Núcleo (si existe)
+    if (clientState.zombieCoreEntity) {
+        clientState.zombieCoreEntity.draw(ctx);
+    }
+
+
     clientState.serverSnapshot.bullets.forEach(b => {
         const bullet = new Bullet(b.id, b.x, b.y);
         bullet.draw(ctx);
@@ -654,7 +711,7 @@ function drawGame(deltaTime) {
 
 
     // Dibuja el HUD (modificado en v1.2)
-    drawHUD(me);
+    drawHUD(me); // (v1.3: Este HUD necesita ser actualizado)
 
 
     if (touchState.currentControlMethod === 'touch') {
@@ -695,32 +752,29 @@ function drawJoysticks() {
 }
 
 
-// --- v1.2: CONSTANTE DE MINIMAPA MOVIDA ---
-// Definido aquí para que drawHUD y drawMinimap lo usen
-const MINIMAP_SIZE = 150; // Tamaño del minimapa en píxeles
+// v1.2: CONSTANTE DE MINIMAPA MOVIDA
+const MINIMAP_SIZE = 150; 
 
 
 /**
  * Dibuja el HUD (Puntuación, Vida) y el Minimapa.
- * --- v1.2: REDISEÑADO PARA NUEVO LAYOUT ---
+ * --- v1.3: ¡NECESITA ACTUALIZACIÓN! ---
+ * (Por ahora, es el layout v1.2. Lo actualizaremos en el Paso 3)
  */
 function drawHUD(player) {
     const { serverSnapshot } = clientState;
-
-    // --- NUEVA LÓGICA DE LAYOUT ---
-
-    // 1. Definir tamaños
+    
+    // --- LÓGICA DE LAYOUT v1.2 ---
     const isMobileLayout = canvas.width < 700;
-    const barHeight = isMobileLayout ? 60 : 40; // Barra más alta en móvil
-    const hudWidth = canvas.width - MINIMAP_SIZE; // Ancho dinámico para la barra
-
+    const barHeight = isMobileLayout ? 60 : 40; 
+    const hudWidth = canvas.width - MINIMAP_SIZE;
     const baseFontSize = isMobileLayout ? 16 : 18;
     const padding = 10;
     const line1Y = isMobileLayout ? 22 : 25;
-    const line2Y = 45; // Solo para móvil
+    const line2Y = 45; 
 
 
-    // 2. Dibujar el fondo de la barra de HUD (izquierda)
+    // 1. Dibujar el fondo de la barra de HUD (izquierda)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(0, 0, hudWidth, barHeight);
 
@@ -729,39 +783,36 @@ function drawHUD(player) {
     ctx.font = `bold ${baseFontSize}px Arial`;
 
 
-    // 3. Bloque 1: Info del Jugador (Vida/Kills)
+    // 2. Bloque 1: Info del Jugador (Vida/Kills)
     ctx.textAlign = 'left';
     const health = player && player.health > 0 ? player.health : 0;
     const kills = player ? player.kills : 0;
     ctx.fillText(`Vida: ${health} | Kills: ${kills}`, padding, line1Y);
 
 
-    // 4. Bloque 2: Info de Partida (Puntuación/Oleada)
+    // 3. Bloque 2: Info de Partida (Puntuación/Oleada)
     const scoreText = `Puntuación: ${serverSnapshot.score} | Oleada: ${serverSnapshot.wave}`;
-
+    
     if (isMobileLayout) {
-        // En móvil: Poner en la segunda línea
         ctx.textAlign = 'left';
         ctx.fillText(scoreText, padding, line2Y);
     } else {
-        // En escritorio: Poner en el centro de la barra
         ctx.textAlign = 'center';
         ctx.fillText(scoreText, hudWidth / 2, line1Y);
     }
 
 
-    // 5. Bloque 3: Nombre del Jugador
+    // 4. Bloque 3: Nombre del Jugador
     ctx.textAlign = 'right';
     const myInfo = clientState.playersInLobby?.find(p => p.id === clientState.me.id);
     const myName = myInfo ? myInfo.name : 'Desconocido';
 
 
     ctx.fillStyle = player?.health > 0 ? 'cyan' : '#F44336';
-    // Alineado a la derecha del *ancho del HUD*, no del canvas
     ctx.fillText(`${myName}`, hudWidth - padding, line1Y);
 
 
-    // 6. Dibujar el minimapa (ahora sin argumentos)
+    // 5. Dibujar el minimapa
     drawMinimap(ctx, player);
 }
 
@@ -804,8 +855,6 @@ function createMinimapBackground() {
 /**
  * Dibuja el minimapa en la esquina superior derecha.
  * --- v1.2: MODIFICADO ---
- * - Se pega a la esquina superior derecha (sin márgenes).
- * - No recibe 'hudBarHeight'.
  */
 function drawMinimap(ctx, me) {
     if (!clientState.mapRenderer || !clientState.minimapCanvas || !me) {
@@ -813,7 +862,6 @@ function drawMinimap(ctx, me) {
     }
 
 
-    // --- MODIFICADO: Posición fija en esquina ---
     const minimapX = canvas.width - MINIMAP_SIZE;
     const minimapY = 0; 
 
@@ -826,7 +874,7 @@ function drawMinimap(ctx, me) {
     ctx.save();
     ctx.beginPath();
     ctx.rect(minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
-    ctx.clip(); // No dibujar nada fuera de este rectángulo
+    ctx.clip(); 
 
 
     // 2. Dibujar el fondo del minimapa
@@ -843,7 +891,7 @@ function drawMinimap(ctx, me) {
 
 
     // 4. Dibujar otros jugadores
-    ctx.fillStyle = '#477be3'; // Azul oscuro (color de 'otros' en entities.js)
+    ctx.fillStyle = '#477be3';
     clientState.interpolatedEntities.players.forEach(player => {
         if (player.id === me.id) return;
         const dotX = minimapX + (player.x * ratio);
@@ -852,8 +900,18 @@ function drawMinimap(ctx, me) {
     });
 
 
+    // v1.3: Dibujar el Núcleo (si existe)
+    if (clientState.zombieCoreEntity) {
+        ctx.fillStyle = '#FF00FF'; // Magenta
+        const core = clientState.zombieCoreEntity;
+        const dotX = minimapX + (core.x * ratio);
+        const dotY = minimapY + (core.y * ratio);
+        ctx.fillRect(dotX - 2, dotY - 2, 5, 5); // Un punto grande
+    }
+
+
     // 5. Dibujar al jugador local
-    ctx.fillStyle = '#2596be'; // Azul cian (color de 'me' en entities.js)
+    ctx.fillStyle = '#2596be';
     const meDotX = minimapX + (me.x * ratio);
     const meDotY = minimapY + (me.y * ratio);
     ctx.fillRect(meDotX - 2, meDotY - 2, 4, 4);
@@ -980,7 +1038,7 @@ function populateRoomList(games) {
 
         const joinButton = document.createElement('button');
         joinButton.textContent = 'Unirse';
-        joinButton.className = 'room-join-button'; // Nota: este botón no usa <span>
+        joinButton.className = 'room-join-button'; 
         joinButton.onclick = () => {
             const playerName = document.getElementById('playerNameInput').value || 'Anónimo';
             clientState.me.name = playerName;
@@ -1063,13 +1121,13 @@ socket.on('gameStarted', (data) => {
 
     clientState.interpolatedEntities.players.clear();
     clientState.interpolatedEntities.zombies.clear();
+    clientState.zombieCoreEntity = null; // v1.3: Limpiar núcleo
 
 
     updateUI();
     resizeCanvas(); 
 
 
-    // --- v1.2: Iniciar bucle de renderizado ---
     if (!animationFrameId) {
         animationFrameId = requestAnimationFrame(gameLoopRender);
     }
@@ -1083,12 +1141,11 @@ socket.on('gameState', (snapshot) => {
 
 // --- v1.2: LÓGICA DE GAME OVER MODIFICADA ---
 socket.on('gameOver', (data) => {
-    // Detener el bucle de renderizado
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
     }
-
+    
     clientState.currentState = 'gameOver';
     document.getElementById('finalScore').textContent = data.finalScore;
     document.getElementById('finalWave').textContent = data.finalWave;
@@ -1098,7 +1155,7 @@ socket.on('gameOver', (data) => {
 
 socket.on('gameEnded', () => {
     console.warn('La partida terminó.');
-
+    
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
@@ -1212,7 +1269,7 @@ document.getElementById('backToMenuButton').addEventListener('click', () => {
     if (clientState.currentState === 'lobby' && clientState.roomId) {
         socket.emit('leaveRoom', clientState.roomId);
     }
-
+    
     clientState.currentState = 'menu';
     clientState.roomId = null;
     clientState.me.isHost = false;
@@ -1238,11 +1295,11 @@ document.getElementById('exitToMenuButton').addEventListener('click', () => {
     if (clientState.roomId) {
         socket.emit('leaveRoom', clientState.roomId);
     }
-
+    
     clientState.currentState = 'menu';
     clientState.roomId = null;
     clientState.me.isHost = false;
-
+    
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
@@ -1252,7 +1309,6 @@ document.getElementById('exitToMenuButton').addEventListener('click', () => {
 
 
 // --- v1.2: AÑADIDO ---
-// Listener para el nuevo slider de oleadas
 document.getElementById('setting_waveMultiplier_slider').addEventListener('input', (e) => {
     document.getElementById('waveMultiplierValue').textContent = `+${e.target.value}%`;
 });
@@ -1262,4 +1318,3 @@ document.getElementById('setting_waveMultiplier_slider').addEventListener('input
 // --- INICIO ---
 loadConfig();
 updateUI();
-// El bucle de renderizado se inicia en 'gameStarted'

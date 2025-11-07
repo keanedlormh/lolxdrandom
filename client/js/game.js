@@ -1,10 +1,16 @@
 /**
- * client/js/game.js - ACTUALIZADO v1.3 (Paso 3)
+ * client/js/game.js - ACTUALIZADO v1.4
  *
- * 1. (v1.3) Añadida nueva config 'coreBurstSpawnMultiplier'.
- * 2. (v1.3) Actualizado DEFAULT_CONFIG, load, save, apply, read, presets
- * para la nueva variable y los nombres cambiados.
- * 3. (v1.3) Añadido listener para el nuevo slider.
+ * 1. (v1.3) Lógica de 2 Fases del Núcleo.
+ * 2. (v1.4) `interpolateEntities`: Ahora recibe `isPending` y `isDead`
+ * del snapshot y lo guarda en el jugador del cliente.
+ * 3. (v1.4) `drawGame` (MODO ESPECTADOR):
+ * - Si `me` está muerto o pendiente, la cámara buscará un
+ * compañero vivo al que seguir.
+ * - Si no hay nadie vivo, la cámara se queda donde está (o va a 0,0).
+ * 4. (v1.4) `drawHUD` (MODO ESPECTADOR):
+ * - Si `me` está muerto o pendiente, muestra un mensaje
+ * "ESPERANDO SIGUIENTE OLEADA" o "ESPECTADOR".
  */
 
 
@@ -18,7 +24,7 @@ window.SCALE = SCALE;
 const SERVER_TICK_RATE = 30;
 
 
-// --- v1.3: MODIFICADO ---
+// --- v1.3: Configuración por defecto actualizada ---
 const DEFAULT_CONFIG = {
     controlType: 'auto',
     playerHealth: 100,
@@ -33,11 +39,11 @@ const DEFAULT_CONFIG = {
     mapSize: 60,
     roomCount: 6,
     corridorWidth: 3,
-    initialZombies: 10, // Zombies Fase 1 (Oleada 1)
-    waveMultiplier: 1.5, // Aum. Zombies Fase 1 (+50%)
+    initialZombies: 10,
+    waveMultiplier: 1.5,
     coreBaseHealth: 500,
-    coreBaseSpawnRate: 5000, // Ritmo Fase 2 (ms)
-    coreBurstSpawnMultiplier: 2.5 // Ritmo Fase 1 (x2.5)
+    coreBaseSpawnRate: 5000,
+    coreBurstSpawnMultiplier: 2.5
 };
 
 
@@ -89,13 +95,11 @@ function applyConfigToUI() {
     document.getElementById('setting_coreBaseSpawnRate').value = gameConfig.coreBaseSpawnRate;
 
 
-    // Slider 1: Aum. Zombies Fase 1 (1.1-2.0 -> 10-100)
     const waveSliderValue = Math.round((gameConfig.waveMultiplier - 1) * 100);
     document.getElementById('setting_waveMultiplier_slider').value = waveSliderValue;
     document.getElementById('waveMultiplierValue').textContent = `+${waveSliderValue}%`;
     document.getElementById('setting_waveMultiplier').value = gameConfig.waveMultiplier;
     
-    // Slider 2: Ritmo Rápido Fase 1 (1.1-5.0 -> 110-500)
     const burstSliderValue = Math.round(gameConfig.coreBurstSpawnMultiplier * 100);
     document.getElementById('setting_coreBurstSpawnMultiplier_slider').value = burstSliderValue;
     document.getElementById('coreBurstSpawnMultiplierValue').textContent = `x${(burstSliderValue / 100).toFixed(1)}`;
@@ -119,16 +123,14 @@ function readConfigFromUI() {
     gameConfig.roomCount = parseInt(document.getElementById('setting_roomCount').value);
     gameConfig.corridorWidth = parseInt(document.getElementById('setting_corridorWidth').value);
     
-    // Configuración de Oleadas
     gameConfig.initialZombies = parseInt(document.getElementById('setting_initialZombies').value);
     gameConfig.coreBaseHealth = parseInt(document.getElementById('setting_coreBaseHealth').value);
     gameConfig.coreBaseSpawnRate = parseInt(document.getElementById('setting_coreBaseSpawnRate').value);
 
-    // Slider 1: Aum. Zombies Fase 1 (10-100 -> 1.1-2.0)
+
     const waveSliderValue = parseInt(document.getElementById('setting_waveMultiplier_slider').value);
     gameConfig.waveMultiplier = 1 + (waveSliderValue / 100);
     
-    // Slider 2: Ritmo Rápido Fase 1 (110-500 -> 1.1-5.0)
     const burstSliderValue = parseInt(document.getElementById('setting_coreBurstSpawnMultiplier_slider').value);
     gameConfig.coreBurstSpawnMultiplier = burstSliderValue / 100;
 }
@@ -152,11 +154,11 @@ window.applyPreset = function(preset) {
                 mapSize: 60,
                 roomCount: 5,
                 corridorWidth: 3,
-                initialZombies: 8,      // Fase 1: 8 zombies
-                waveMultiplier: 1.3,    // Fase 1: +30% por oleada
+                initialZombies: 8,
+                waveMultiplier: 1.3,
                 coreBaseHealth: 300,
-                coreBaseSpawnRate: 6000,  // Fase 2: 6 seg
-                coreBurstSpawnMultiplier: 2.0 // Fase 1: x2 (3 seg)
+                coreBaseSpawnRate: 6000,
+                coreBurstSpawnMultiplier: 2.0
             };
             break;
         case 'normal':
@@ -177,11 +179,11 @@ window.applyPreset = function(preset) {
                 mapSize: 80,
                 roomCount: 8,
                 corridorWidth: 2,
-                initialZombies: 15,     // Fase 1: 15 zombies
-                waveMultiplier: 1.8,    // Fase 1: +80% por oleada
+                initialZombies: 15,
+                waveMultiplier: 1.8,
                 coreBaseHealth: 1000,
-                coreBaseSpawnRate: 3500,  // Fase 2: 3.5 seg
-                coreBurstSpawnMultiplier: 4.0 // Fase 1: x4 (~0.8 seg)
+                coreBaseSpawnRate: 3500,
+                coreBurstSpawnMultiplier: 4.0
             };
             break;
     }
@@ -190,7 +192,6 @@ window.applyPreset = function(preset) {
 };
 
 
-// Generar resumen de configuración
 function getConfigSummary() {
     return `
         Jugador: ${gameConfig.playerHealth}HP, Vel ${gameConfig.playerSpeed} | 
@@ -199,16 +200,6 @@ function getConfigSummary() {
     `;
 }
 
-
-// --- (El resto del archivo 'game.js' no necesita cambios para este paso) ---
-// ... (Lógica de Joysticks, Controles, Interpolación, etc.) ...
-// --- (Añadimos los nuevos listeners al final) ---
-
-// --- [CÓDIGO INTERMEDIO DE game.js OMITIDO POR BREVEDAD] ---
-// ... (Todo desde 'const JOYSTICK_RADIUS' hasta 'updateUI();') ...
-// ... (Este código es idéntico al de la v1.2 / Paso 2) ...
-
-// [INICIO DEL CÓDIGO OMITIDO]
 
 const JOYSTICK_RADIUS = 70;
 const KNOB_RADIUS = 30;
@@ -221,6 +212,7 @@ const touchState = {
     aim: { active: false, id: null, centerX: 0, centerY: 0, currentX: 0, currentY: 0 }
 };
 
+
 function updateControlMethod() {
     let method = gameConfig.controlType;
     if (method === 'auto') {
@@ -229,6 +221,7 @@ function updateControlMethod() {
     touchState.currentControlMethod = method;
     console.log(`[CONTROLES] Método de control activo: ${method}`);
 }
+
 
 const clientState = {
     currentState: 'menu',
@@ -240,13 +233,13 @@ const clientState = {
         bullets: [],
         score: 0,
         wave: 1,
-        zombieCore: null // v1.3: Añadido
+        zombieCore: null // v1.3
     },
     interpolatedEntities: {
         players: new Map(),
         zombies: new Map()
     },
-    zombieCoreEntity: null, // v1.3: Añadido
+    zombieCoreEntity: null, // v1.3
     mapRenderer: null,
     minimapCanvas: null,
     cameraX: 0, 
@@ -258,18 +251,22 @@ const clientState = {
     }
 };
 
+
 let lastRenderTime = 0;
 let animationFrameId = null;
+
 
 function lerp(start, end, amount) {
     return start + (end - start) * amount;
 }
+
 
 function sendInputToServer() {
     const moveLength = Math.sqrt(clientState.input.moveX ** 2 + clientState.input.moveY ** 2);
     let n_moveX = clientState.input.moveX;
     let n_moveY = clientState.input.moveY;
     if (moveLength > 1) { n_moveX /= moveLength; n_moveY /= moveLength; }
+
 
     socket.emit('playerInput', {
         moveX: n_moveX,
@@ -280,30 +277,43 @@ function sendInputToServer() {
     });
 }
 
+
 const moveKeys = {
     'w': { dy: -1 }, 's': { dy: 1 },
     'a': { dx: -1 }, 'd': { dx: 1 },
 };
 const keysPressed = new Set();
 
+
 document.addEventListener('keydown', (e) => {
-    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; 
-    const key = e.key.toLowerCase();
-    if (moveKeys[key]) {
-        keysPressed.add(key);
-        updateMoveInput();
-        e.preventDefault();
+    // v1.4: Permitir movimiento de cámara si está muerto (para espectador)
+    // if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; 
+    
+    // v1.4: El input de movimiento solo se envía si estás vivo
+    if (clientState.currentState === 'playing' && touchState.currentControlMethod === 'keyboard') {
+        const me = clientState.interpolatedEntities.players.get(clientState.me.id);
+        if (me && me.health > 0) {
+            const key = e.key.toLowerCase();
+            if (moveKeys[key]) {
+                keysPressed.add(key);
+                updateMoveInput();
+                e.preventDefault();
+            }
+        }
     }
 });
 
+
 document.addEventListener('keyup', (e) => {
-    if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; 
-    const key = e.key.toLowerCase();
-    if (moveKeys[key]) {
-        keysPressed.delete(key);
-        updateMoveInput();
+    if (clientState.currentState === 'playing' && touchState.currentControlMethod === 'keyboard') {
+        const key = e.key.toLowerCase();
+        if (moveKeys[key]) {
+            keysPressed.delete(key);
+            updateMoveInput();
+        }
     }
 });
+
 
 function updateMoveInput() {
     if (touchState.currentControlMethod !== 'keyboard') { 
@@ -321,28 +331,38 @@ function updateMoveInput() {
     clientState.input.moveY = moveY;
 }
 
+
 function calculateAimVector(e) {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return;
 
+
+    // v1.4: Disparar solo si estás vivo
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
-    if (!me || clientState.cameraX === undefined || clientState.cameraY === undefined) {
+    if (!me || me.health <= 0) return;
+    
+    if (clientState.cameraX === undefined || clientState.cameraY === undefined) {
         return;
     }
+
 
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left; 
     const mouseY = e.clientY - rect.top;
 
+
     const playerScreenX = me.x - clientState.cameraX;
     const playerScreenY = me.y - clientState.cameraY;
 
+
     let shootX = mouseX - playerScreenX;
     let shootY = mouseY - playerScreenY;
+
 
     const length = Math.sqrt(shootX ** 2 + shootY ** 2);
     if (length > 0.1) { 
         clientState.input.shootX = shootX / length;
         clientState.input.shootY = shootY / length;
+
 
         if (me) {
             me.shootX = clientState.input.shootX;
@@ -351,14 +371,20 @@ function calculateAimVector(e) {
     }
 }
 
+
 canvas.addEventListener('mousemove', calculateAimVector);
+
 
 canvas.addEventListener('mousedown', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return;
-    if (e.button === 0) {
+    
+    // v1.4: Disparar solo si estás vivo
+    const me = clientState.interpolatedEntities.players.get(clientState.me.id);
+    if (me && me.health > 0 && e.button === 0) {
         clientState.input.isShooting = true;
     }
 });
+
 
 canvas.addEventListener('mouseup', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return;
@@ -367,14 +393,22 @@ canvas.addEventListener('mouseup', (e) => {
     }
 });
 
+
 canvas.addEventListener('touchstart', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return;
     e.preventDefault();
+
+
+    // v1.4: Input táctil solo si estás vivo
+    const me = clientState.interpolatedEntities.players.get(clientState.me.id);
+    if (!me || me.health <= 0) return;
+
 
     Array.from(e.changedTouches).forEach(touch => {
         const screenX = touch.clientX;
         const screenY = touch.clientY;
         const isLeftHalf = screenX < canvas.width * 0.5;
+
 
         if (isLeftHalf && !touchState.move.active) {
             const move = touchState.move;
@@ -397,13 +431,21 @@ canvas.addEventListener('touchstart', (e) => {
     });
 }, { passive: false });
 
+
 canvas.addEventListener('touchmove', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return;
     e.preventDefault();
 
+
+    // v1.4: Input táctil solo si estás vivo
+    const me = clientState.interpolatedEntities.players.get(clientState.me.id);
+    if (!me || me.health <= 0) return;
+
+
     Array.from(e.changedTouches).forEach(touch => {
         const screenX = touch.clientX;
         const screenY = touch.clientY;
+
 
         if (touchState.move.active && touch.identifier === touchState.move.id) {
             const move = touchState.move;
@@ -411,10 +453,12 @@ canvas.addEventListener('touchmove', (e) => {
             let dy = screenY - move.centerY;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
+
             if (distance > JOYSTICK_RADIUS) {
                 dx *= JOYSTICK_RADIUS / distance;
                 dy *= JOYSTICK_RADIUS / distance;
             }
+
 
             move.currentX = move.centerX + dx;
             move.currentY = move.centerY + dy;
@@ -427,19 +471,22 @@ canvas.addEventListener('touchmove', (e) => {
             let dy = screenY - aim.centerY;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
+
             if (distance > JOYSTICK_RADIUS) {
                 dx *= JOYSTICK_RADIUS / distance;
                 dy *= JOYSTICK_RADIUS / distance;
             }
 
+
             aim.currentX = aim.centerX + dx;
             aim.currentY = aim.centerY + dy;
+
 
             if (distance > KNOB_RADIUS / 2) { 
                 clientState.input.shootX = dx / distance;
                 clientState.input.shootY = dy / distance;
 
-                const me = clientState.interpolatedEntities.players.get(clientState.me.id);
+
                 if (me) {
                     me.shootX = clientState.input.shootX;
                     me.shootY = clientState.input.shootY;
@@ -449,9 +496,11 @@ canvas.addEventListener('touchmove', (e) => {
     });
 }, { passive: false });
 
+
 canvas.addEventListener('touchend', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return;
     e.preventDefault();
+
 
     Array.from(e.changedTouches).forEach(touch => {
         if (touchState.move.active && touch.identifier === touchState.move.id) {
@@ -468,18 +517,32 @@ canvas.addEventListener('touchend', (e) => {
     });
 }, { passive: false });
 
+
+// --- RENDERIZADO ---
 function gameLoopRender(timestamp) {
     if (clientState.currentState === 'playing') {
         const serverSnapshotTime = 1000 / SERVER_TICK_RATE;
         const timeSinceLastSnapshot = timestamp - lastRenderTime;
         const interpolationFactor = Math.min(1, timeSinceLastSnapshot / serverSnapshotTime);
 
-        updateCore(); 
+
+        updateCore(); // v1.3
         interpolateEntities(interpolationFactor);
         
         drawGame(timeSinceLastSnapshot);
-        sendInputToServer();
+        
+        // v1.4: Solo enviar input si estás vivo
+        const me = clientState.interpolatedEntities.players.get(clientState.me.id);
+        if (me && me.health > 0) {
+            sendInputToServer();
+        } else {
+            // Asegurarse de no enviar input si estás muerto
+            clientState.input.isShooting = false;
+            clientState.input.moveX = 0;
+            clientState.input.moveY = 0;
+        }
     }
+
 
     lastRenderTime = timestamp;
     if (animationFrameId) {
@@ -487,6 +550,8 @@ function gameLoopRender(timestamp) {
     }
 }
 
+
+// v1.3
 function updateCore() {
     const coreData = clientState.serverSnapshot.zombieCore;
     
@@ -513,15 +578,19 @@ function updateCore() {
     }
 }
 
+
+// --- v1.4: `interpolateEntities` MODIFICADO ---
 function interpolateEntities(factor) {
     const { serverSnapshot, interpolatedEntities } = clientState;
     const serverPlayerIds = new Set();
     const serverZombieIds = new Set();
 
+
     serverSnapshot.players.forEach(p_server => {
         serverPlayerIds.add(p_server.id);
         let p_client = interpolatedEntities.players.get(p_server.id);
         const isMe = p_server.id === clientState.me.id;
+
 
         if (!p_client) {
             p_client = new Player(p_server.id, p_server.x, p_server.y, isMe, p_server.name);
@@ -530,30 +599,43 @@ function interpolateEntities(factor) {
             interpolatedEntities.players.set(p_server.id, p_client);
         }
 
+
         p_client.prevX = p_client.x;
         p_client.prevY = p_client.y;
         p_client.targetX = p_server.x;
         p_client.targetY = p_server.y;
         p_client.health = p_server.health;
         p_client.kills = p_server.kills;
+        
+        // v1.4: Guardar estado de muerte/pendiente
+        p_client.isDead = p_server.isDead;
+        p_client.isPending = p_server.isPending;
+
 
         if (!isMe || touchState.currentControlMethod === 'keyboard') {
-            p_client.shootX = p_server.shootX;
-            p_client.shootY = p_server.shootY;
+            // v1.4: Solo actualizar mira si estás vivo
+            if (p_client.health > 0) {
+                p_client.shootX = p_server.shootX;
+                p_client.shootY = p_server.shootY;
+            }
         }
+
 
         p_client.x = lerp(p_client.prevX, p_client.targetX, factor);
         p_client.y = lerp(p_client.prevY, p_client.targetY, factor);
     });
 
+
     serverSnapshot.zombies.forEach(z_server => {
         serverZombieIds.add(z_server.id);
         let z_client = interpolatedEntities.zombies.get(z_server.id);
+
 
         if (!z_client) {
             z_client = new Zombie(z_server.id, z_server.x, z_server.y, z_server.maxHealth);
             interpolatedEntities.zombies.set(z_server.id, z_client);
         }
+
 
         z_client.prevX = z_client.x;
         z_client.prevY = z_client.y;
@@ -562,41 +644,72 @@ function interpolateEntities(factor) {
         z_client.health = z_server.health;
         z_client.maxHealth = z_server.maxHealth;
 
+
         z_client.x = lerp(z_client.prevX, z_client.targetX, factor);
         z_client.y = lerp(z_client.prevY, z_client.targetY, factor);
     });
 
+
     interpolatedEntities.players.forEach((_, id) => {
         if (!serverPlayerIds.has(id)) { interpolatedEntities.players.delete(id); }
     });
+
 
     interpolatedEntities.zombies.forEach((_, id) => {
         if (!serverZombieIds.has(id)) { interpolatedEntities.zombies.delete(id); }
     });
 }
 
+
+// --- v1.4: `drawGame` MODIFICADO (Modo Espectador) ---
 function drawGame(deltaTime) {
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
-    if (!me) {
+    
+    // v1.4: Determinar a quién seguir con la cámara
+    let cameraTarget = me;
+    
+    if (!me || me.health <= 0) {
+        // MODO ESPECTADOR: Estoy muerto o pendiente
+        // Buscar un compañero vivo para seguir
+        const alivePlayer = Array.from(clientState.interpolatedEntities.players.values())
+                                .find(p => p.health > 0 && !p.isPending);
+        
+        if (alivePlayer) {
+            cameraTarget = alivePlayer;
+        } else {
+            // Nadie está vivo, la cámara se queda donde está (o en 'me' si existe)
+            cameraTarget = me; 
+        }
+    }
+
+
+    // Si no hay ningún objetivo (ej: error de conexión), mostrar pantalla negra
+    if (!cameraTarget) {
         ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); 
         ctx.fillStyle = '#222';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawHUD(me); // Dibujar HUD incluso si no hay cámara
         return;
     }
+
 
     const viewportW = canvas.width / SCALE; 
     const viewportH = canvas.height / SCALE;
 
-    let cameraX = me.x - viewportW / 2;
-    let cameraY = me.y - viewportH / 2;
+
+    let cameraX = cameraTarget.x - viewportW / 2;
+    let cameraY = cameraTarget.y - viewportH / 2;
+
 
     if (clientState.mapRenderer) {
         const mapSize = clientState.mapRenderer.mapWorldSize;
         cameraX = Math.max(0, Math.min(cameraX, mapSize - viewportW));
         cameraY = Math.max(0, Math.min(cameraY, mapSize - viewportH));
 
+
         if (viewportW > mapSize) cameraX = -(viewportW - mapSize) / 2; 
         if (viewportH > mapSize) cameraY = -(viewportH - mapSize) / 2;
+
 
         clientState.cameraX = cameraX;
         clientState.cameraY = cameraY;
@@ -605,42 +718,54 @@ function drawGame(deltaTime) {
         clientState.cameraY = cameraY;
     }
 
+
     ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); 
     ctx.fillStyle = '#222';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+
     ctx.save();
     ctx.translate(-clientState.cameraX, -clientState.cameraY); 
+
 
     if (clientState.mapRenderer) {
         clientState.mapRenderer.draw(ctx, clientState.cameraX, clientState.cameraY);
     }
 
+
     if (clientState.zombieCoreEntity) {
         clientState.zombieCoreEntity.draw(ctx);
     }
+
 
     clientState.serverSnapshot.bullets.forEach(b => {
         const bullet = new Bullet(b.id, b.x, b.y);
         bullet.draw(ctx);
     });
 
+
     clientState.interpolatedEntities.zombies.forEach(z => {
         z.draw(ctx);
     });
+
 
     clientState.interpolatedEntities.players.forEach(p => {
         p.draw(ctx);
     });
 
+
     ctx.restore();
 
-    drawHUD(me);
 
-    if (touchState.currentControlMethod === 'touch') {
+    drawHUD(me); // Pasamos 'me' (incluso si está muerto)
+
+
+    // v1.4: Dibujar joysticks solo si estoy vivo
+    if (me && me.health > 0 && touchState.currentControlMethod === 'touch') {
         drawJoysticks();
     }
 }
+
 
 function drawJoysticks() {
     if (touchState.move.active) {
@@ -650,11 +775,13 @@ function drawJoysticks() {
         ctx.arc(move.centerX, move.centerY, JOYSTICK_RADIUS, 0, Math.PI * 2);
         ctx.fill();
 
+
         ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.beginPath();
         ctx.arc(move.currentX, move.currentY, KNOB_RADIUS, 0, Math.PI * 2);
         ctx.fill();
     }
+
 
     if (touchState.aim.active) {
         const aim = touchState.aim;
@@ -663,6 +790,7 @@ function drawJoysticks() {
         ctx.arc(aim.centerX, aim.centerY, JOYSTICK_RADIUS, 0, Math.PI * 2);
         ctx.fill();
 
+
         ctx.fillStyle = 'rgba(255, 0, 0, 0.6)';
         ctx.beginPath();
         ctx.arc(aim.currentX, aim.currentY, KNOB_RADIUS, 0, Math.PI * 2);
@@ -670,9 +798,12 @@ function drawJoysticks() {
     }
 }
 
+
 const MINIMAP_SIZE = 150; 
 
-function drawHUD(player) {
+
+// --- v1.4: `drawHUD` MODIFICADO (Mensaje de Espectador) ---
+function drawHUD(player) { // 'player' es 'me'
     const { serverSnapshot } = clientState;
     
     const isMobileLayout = canvas.width < 700;
@@ -683,16 +814,21 @@ function drawHUD(player) {
     const line1Y = isMobileLayout ? 22 : 25;
     const line2Y = 45; 
 
+
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(0, 0, hudWidth, barHeight);
+
 
     ctx.fillStyle = 'white';
     ctx.font = `bold ${baseFontSize}px Arial`;
 
-    ctx.textAlign = 'left';
+
+    // v1.4: Mostrar salud 0 si 'me' no existe (pendiente)
     const health = player && player.health > 0 ? player.health : 0;
     const kills = player ? player.kills : 0;
+    ctx.textAlign = 'left';
     ctx.fillText(`Vida: ${health} | Kills: ${kills}`, padding, line1Y);
+
 
     const scoreText = `Puntuación: ${serverSnapshot.score} | Oleada: ${serverSnapshot.wave}`;
     
@@ -704,29 +840,54 @@ function drawHUD(player) {
         ctx.fillText(scoreText, hudWidth / 2, line1Y);
     }
 
+
     ctx.textAlign = 'right';
-    const myInfo = clientState.playersInLobby?.find(p => p.id === clientState.me.id);
-    const myName = myInfo ? myInfo.name : 'Desconocido';
+    const myName = player ? player.name : (clientState.me.name || 'Jugador');
+
 
     ctx.fillStyle = player?.health > 0 ? 'cyan' : '#F44336';
     ctx.fillText(`${myName}`, hudWidth - padding, line1Y);
 
-    drawMinimap(ctx, player);
+
+    drawMinimap(ctx, player); // Pasamos 'me' (incluso si es null)
+    
+    
+    // --- v1.4: Mensaje de Espectador ---
+    if (!player || player.health <= 0) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, canvas.height / 2 - 30, canvas.width, 60);
+        
+        ctx.fillStyle = '#FF0000';
+        ctx.font = 'bold 24px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        
+        const message = player && player.isPending ? 'UNIÉNDOSE A LA PARTIDA...' : '¡ESTÁS MUERTO!';
+        ctx.fillText(message, canvas.width / 2, canvas.height / 2 - 5);
+        
+        ctx.fillStyle = 'white';
+        ctx.font = '18px Rajdhani, sans-serif';
+        ctx.fillText('Esperando a la siguiente oleada...', canvas.width / 2, canvas.height / 2 + 20);
+    }
 }
+
 
 function createMinimapBackground() {
     if (!clientState.mapRenderer) return;
 
+
     const mapData = clientState.mapRenderer.map;
     const gridSize = mapData.length;
+
 
     const mapCanvas = document.createElement('canvas');
     mapCanvas.width = gridSize;
     mapCanvas.height = gridSize;
     const mapCtx = mapCanvas.getContext('2d');
 
+
     mapCtx.fillStyle = '#222';
     mapCtx.fillRect(0, 0, gridSize, gridSize);
+
 
     mapCtx.fillStyle = '#555';
     for (let y = 0; y < gridSize; y++) {
@@ -737,26 +898,34 @@ function createMinimapBackground() {
         }
     }
 
+
     clientState.minimapCanvas = mapCanvas;
 }
 
-function drawMinimap(ctx, me) {
-    if (!clientState.mapRenderer || !clientState.minimapCanvas || !me) {
+
+// v1.4: 'me' puede ser null, pero 'drawMinimap' debe funcionar
+function drawMinimap(ctx, me) { 
+    if (!clientState.mapRenderer || !clientState.minimapCanvas) {
         return;
     }
+
 
     const minimapX = canvas.width - MINIMAP_SIZE;
     const minimapY = 0; 
 
+
     const mapWorldSize = clientState.mapRenderer.mapWorldSize;
     const ratio = MINIMAP_SIZE / mapWorldSize;
+
 
     ctx.save();
     ctx.beginPath();
     ctx.rect(minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
     ctx.clip(); 
 
+
     ctx.drawImage(clientState.minimapCanvas, minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
+
 
     ctx.fillStyle = '#F44336';
     clientState.interpolatedEntities.zombies.forEach(zombie => {
@@ -765,33 +934,36 @@ function drawMinimap(ctx, me) {
         ctx.fillRect(dotX - 1, dotY - 1, 2, 2);
     });
 
+
     ctx.fillStyle = '#477be3';
     clientState.interpolatedEntities.players.forEach(player => {
-        if (player.id === me.id) return;
-        const dotX = minimapX + (player.x * ratio);
-        const dotY = minimapY + (player.y * ratio);
-        ctx.fillRect(dotX - 1, dotY - 1, 3, 3);
+        if (me && player.id === me.id) return; // Saltar si 'me' existe
+        ctx.fillRect(minimapX + (player.x * ratio) - 1, minimapY + (player.y * ratio) - 1, 3, 3);
     });
+
 
     if (clientState.zombieCoreEntity) {
         ctx.fillStyle = '#FF00FF'; // Magenta
         const core = clientState.zombieCoreEntity;
-        const dotX = minimapX + (core.x * ratio);
-        const dotY = minimapY + (core.y * ratio);
-        ctx.fillRect(dotX - 2, dotY - 2, 5, 5);
+        ctx.fillRect(minimapX + (core.x * ratio) - 2, minimapY + (core.y * ratio) - 2, 5, 5);
     }
 
-    ctx.fillStyle = '#2596be';
-    const meDotX = minimapX + (me.x * ratio);
-    const meDotY = minimapY + (me.y * ratio);
-    ctx.fillRect(meDotX - 2, meDotY - 2, 4, 4);
+
+    // v1.4: Dibujar a 'me' solo si existe
+    if (me) {
+        ctx.fillStyle = '#2596be';
+        ctx.fillRect(minimapX + (me.x * ratio) - 2, minimapY + (me.y * ratio) - 2, 4, 4);
+    }
+
 
     ctx.restore();
+
 
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.lineWidth = 1;
     ctx.strokeRect(minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
 }
+
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
@@ -799,8 +971,10 @@ function resizeCanvas() {
     ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); 
 }
 
+
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas(); 
+
 
 function updateUI() {
     const menuScreen = document.getElementById('menuScreen');
@@ -809,12 +983,14 @@ function updateUI() {
     const gameOverScreen = document.getElementById('gameOverScreen');
     const roomListScreen = document.getElementById('roomListScreen');
 
+
     menuScreen.style.display = 'none';
     settingsScreen.style.display = 'none';
     lobbyScreen.style.display = 'none';
     gameOverScreen.style.display = 'none';
     roomListScreen.style.display = 'none';
     canvas.style.display = 'none';
+
 
     if (clientState.currentState === 'menu') {
         menuScreen.style.display = 'flex';
@@ -832,24 +1008,32 @@ function updateUI() {
     }
 }
 
+
 function updateLobbyDisplay() {
     const playerList = document.getElementById('lobbyPlayerList');
     const startButton = document.getElementById('startButton');
     const hostConfigInfo = document.getElementById('hostConfigInfo');
 
+
     if (clientState.currentState !== 'lobby') return;
 
+
     playerList.innerHTML = '';
-    clientState.playersInLobby.forEach(p => {
-        const li = document.createElement('li');
-        li.textContent = `${p.name} ${p.isHost ? '(Host)' : ''}`;
-        li.style.color = p.id === clientState.me.id ? 'cyan' : 'white';
-        playerList.appendChild(li);
-    });
+    
+    // v1.4: Usar 'playersInLobby' que viene de 'lobbyUpdate'
+    if (clientState.playersInLobby) {
+        clientState.playersInLobby.forEach(p => {
+            const li = document.createElement('li');
+            li.textContent = `${p.name} ${p.isHost ? '(Host)' : ''}`;
+            li.style.color = p.id === clientState.me.id ? 'cyan' : 'white';
+            playerList.appendChild(li);
+        });
+    }
+
 
     if (clientState.me.isHost) { 
         startButton.style.display = 'block';
-        startButton.disabled = clientState.playersInLobby.length < 1;
+        startButton.disabled = !clientState.playersInLobby || clientState.playersInLobby.length < 1;
         hostConfigInfo.style.display = 'block';
         document.getElementById('configSummary').textContent = getConfigSummary();
     } else {
@@ -857,23 +1041,29 @@ function updateLobbyDisplay() {
         hostConfigInfo.style.display = 'none';
     }
 
+
     document.getElementById('lobbyRoomId').textContent = `Sala ID: ${clientState.roomId}`;
 }
+
 
 function populateRoomList(games) {
     const container = document.getElementById('roomListContainer');
     if (!container) return;
 
+
     container.innerHTML = '';
+
 
     if (games.length === 0) {
         container.innerHTML = '<p style="padding: 20px; color: #aaa; text-align: center;">No hay salas activas. ¡Crea una!</p>';
         return;
     }
 
+
     games.forEach(game => {
         const roomItem = document.createElement('div');
         roomItem.className = 'room-item';
+
 
         const roomInfo = document.createElement('div');
         roomInfo.className = 'room-info';
@@ -881,6 +1071,7 @@ function populateRoomList(games) {
             <strong>Sala: ${game.id}</strong>
             <span>Host: ${game.hostName} (${game.playerCount} jugador${game.playerCount > 1 ? 'es' : ''})</span>
         `;
+
 
         const joinButton = document.createElement('button');
         joinButton.textContent = 'Unirse';
@@ -891,16 +1082,19 @@ function populateRoomList(games) {
             socket.emit('joinGame', game.id, playerName);
         };
 
+
         roomItem.appendChild(roomInfo);
         roomItem.appendChild(joinButton);
         container.appendChild(roomItem);
     });
 }
 
+
 socket.on('connect', () => {
     clientState.me.id = socket.id;
     console.log(`[CLIENTE] Conectado: ${socket.id}`);
 });
+
 
 socket.on('gameCreated', (game) => {
     clientState.currentState = 'lobby';
@@ -910,6 +1104,7 @@ socket.on('gameCreated', (game) => {
     updateUI();
 });
 
+
 socket.on('joinSuccess', (game) => {
     clientState.currentState = 'lobby';
     clientState.roomId = game.id;
@@ -917,6 +1112,7 @@ socket.on('joinSuccess', (game) => {
     clientState.playersInLobby = game.players;
     updateUI();
 });
+
 
 socket.on('joinFailed', (message) => {
     const input = document.getElementById('roomIdInput');
@@ -935,9 +1131,11 @@ socket.on('joinFailed', (message) => {
     updateUI();
 });
 
+
 socket.on('lobbyUpdate', (game) => {
-    clientState.playersInLobby = game.players;
+    clientState.playersInLobby = game.players; // v1.4: Actualizar lista de jugadores
     clientState.me.isHost = game.players.find(p => p.id === clientState.me.id)?.isHost || false;
+
 
     if (clientState.currentState === 'gameOver') {
         clientState.currentState = 'lobby';
@@ -948,27 +1146,34 @@ socket.on('lobbyUpdate', (game) => {
     }
 });
 
+
 socket.on('gameStarted', (data) => {
     clientState.currentState = 'playing';
     clientState.mapRenderer = new MapRenderer(data.mapData, data.cellSize);
 
+
     createMinimapBackground(); 
+
 
     clientState.interpolatedEntities.players.clear();
     clientState.interpolatedEntities.zombies.clear();
     clientState.zombieCoreEntity = null;
 
+
     updateUI();
     resizeCanvas(); 
+
 
     if (!animationFrameId) {
         animationFrameId = requestAnimationFrame(gameLoopRender);
     }
 });
 
+
 socket.on('gameState', (snapshot) => {
     clientState.serverSnapshot = snapshot;
 });
+
 
 socket.on('gameOver', (data) => {
     if (animationFrameId) {
@@ -982,6 +1187,7 @@ socket.on('gameOver', (data) => {
     updateUI();
 });
 
+
 socket.on('gameEnded', () => {
     console.warn('La partida terminó.');
     
@@ -990,25 +1196,31 @@ socket.on('gameEnded', () => {
         animationFrameId = null;
     }
 
+
     clientState.currentState = 'menu';
     clientState.roomId = null;
     clientState.me.isHost = false;
     updateUI();
 });
 
+
 socket.on('playerDisconnected', (playerId) => {
     console.log(`Jugador desconectado: ${playerId}`);
+    // v1.4: La interpolación se encargará de eliminarlo
 });
+
 
 socket.on('gameList', (games) => {
     populateRoomList(games);
 });
+
 
 document.getElementById('createGameButton').addEventListener('click', () => {
     const playerName = document.getElementById('playerNameInput').value || 'Anónimo';
     clientState.me.name = playerName;
     socket.emit('createGame', { name: playerName, config: gameConfig });
 });
+
 
 document.getElementById('browseGamesButton').addEventListener('click', () => {
     clientState.currentState = 'roomList';
@@ -1020,6 +1232,7 @@ document.getElementById('browseGamesButton').addEventListener('click', () => {
     socket.emit('requestGameList');
 });
 
+
 document.getElementById('refreshRoomListButton').addEventListener('click', () => {
     const container = document.getElementById('roomListContainer');
     if (container) {
@@ -1028,10 +1241,12 @@ document.getElementById('refreshRoomListButton').addEventListener('click', () =>
     socket.emit('requestGameList');
 });
 
+
 document.getElementById('backToMenuFromRoomListButton').addEventListener('click', () => {
     clientState.currentState = 'menu';
     updateUI();
 });
+
 
 document.getElementById('joinGameButton').addEventListener('click', () => {
     const roomId = document.getElementById('roomIdInput').value.toUpperCase();
@@ -1050,10 +1265,12 @@ document.getElementById('joinGameButton').addEventListener('click', () => {
     socket.emit('joinGame', roomId, playerName);
 });
 
+
 document.getElementById('settingsButton').addEventListener('click', () => {
     clientState.currentState = 'settings';
     updateUI();
 });
+
 
 document.getElementById('saveSettingsButton').addEventListener('click', () => {
     readConfigFromUI();
@@ -1063,21 +1280,25 @@ document.getElementById('saveSettingsButton').addEventListener('click', () => {
     updateUI();
 });
 
+
 document.getElementById('resetSettingsButton').addEventListener('click', () => {
     const currentControl = gameConfig.controlType;
     gameConfig = {...DEFAULT_CONFIG};
     gameConfig.controlType = currentControl;
+
 
     applyConfigToUI();
     saveConfig();
     updateControlMethod();
 });
 
+
 document.getElementById('startButton').addEventListener('click', () => {
     if (clientState.me.isHost && clientState.roomId) {
         socket.emit('startGame', clientState.roomId);
     }
 });
+
 
 document.getElementById('backToMenuButton').addEventListener('click', () => {
     if (clientState.currentState === 'lobby' && clientState.roomId) {
@@ -1094,6 +1315,7 @@ document.getElementById('backToMenuButton').addEventListener('click', () => {
     updateUI();
 });
 
+
 document.getElementById('continueGameButton').addEventListener('click', () => {
     if (clientState.currentState === 'gameOver' && clientState.roomId) {
         socket.emit('returnToLobby', clientState.roomId);
@@ -1101,6 +1323,7 @@ document.getElementById('continueGameButton').addEventListener('click', () => {
         updateUI();
     }
 });
+
 
 document.getElementById('exitToMenuButton').addEventListener('click', () => {
     if (clientState.roomId) {
@@ -1118,18 +1341,17 @@ document.getElementById('exitToMenuButton').addEventListener('click', () => {
     updateUI();
 });
 
-// [FIN DEL CÓDIGO OMITIDO]
 
-// --- v1.3: AÑADIDOS LISTENERS PARA SLIDERS ---
 document.getElementById('setting_waveMultiplier_slider').addEventListener('input', (e) => {
     document.getElementById('waveMultiplierValue').textContent = `+${e.target.value}%`;
 });
 
+
+// v1.3: Listener para el nuevo slider
 document.getElementById('setting_coreBurstSpawnMultiplier_slider').addEventListener('input', (e) => {
     const value = parseInt(e.target.value) / 100;
     document.getElementById('coreBurstSpawnMultiplierValue').textContent = `x${value.toFixed(1)}`;
 });
-// --- FIN AÑADIDO v1.3 ---
 
 
 // --- INICIO ---

@@ -1,15 +1,11 @@
 /**
- * server/server.js - ACTUALIZADO v1.2
+ * server/server.js - ACTUALIZADO v1.3 (Paso 1)
  *
  * Esta versión incluye:
- * 1. (v1.1) Listener 'requestGameList' para el buscador de salas.
- * 2. (v1.2) Lógica de Game Over modificada:
- * - El bucle de juego se detiene.
- * - El estado de la sala se cambia a 'finished'.
- * - Se emite 'gameOver' pero la sala NO se destruye.
- * 3. (v1.2) Nuevo listener 'returnToLobby':
- * - Resetea una sala 'finished' de nuevo a 'lobby'.
- * - Vuelve a crear el 'gameLogic' la próxima vez que el host inicie.
+ * 1. (v1.2) Lógica de 'finished' y 'returnToLobby'.
+ * 2. (v1.3) Añadidas las nuevas variables de configuración
+ * (coreBaseHealth, coreBaseSpawnRate) al DEFAULT_CONFIG
+ * y a la lógica de creación de la sala.
  */
 
 
@@ -34,7 +30,8 @@ const activeGames = new Map();
 const userToRoom = new Map();
 
 
-// Configuracion por defecto (misma que en el cliente)
+// --- v1.3: MODIFICADO ---
+// Añadidas variables del Núcleo
 const DEFAULT_CONFIG = {
     playerHealth: 100,
     playerSpeed: 6,
@@ -49,7 +46,10 @@ const DEFAULT_CONFIG = {
     roomCount: 6,
     corridorWidth: 3,
     initialZombies: 5,
-    waveMultiplier: 1.5 // v1.2: Default 50%
+    waveMultiplier: 1.5,
+    // v1.3: Nuevas variables
+    coreBaseHealth: 500,
+    coreBaseSpawnRate: 5000
 };
 
 
@@ -69,7 +69,9 @@ class Game {
         this.status = 'lobby';
         this.gameLogic = null;
         this.gameLoopInterval = null;
-        this.config = config || { ...DEFAULT_CONFIG };
+        // v1.3: Asegurarse que la config fusionada
+        // tenga los defaults si faltan
+        this.config = { ...DEFAULT_CONFIG, ...(config || {}) };
     }
 
 
@@ -143,7 +145,8 @@ io.on('connection', (socket) => {
 
 
         const playerName = data.name || 'Jugador';
-        const config = data.config || { ...DEFAULT_CONFIG };
+        // v1.3: Fusionar config recibida con default
+        const config = { ...DEFAULT_CONFIG, ...(data.config || {}) };
 
 
         const newGame = new Game(roomId, socket.id, playerName, config);
@@ -194,7 +197,6 @@ io.on('connection', (socket) => {
      * v1.1: Petición de lista de salas
      */
     socket.on('requestGameList', () => {
-        // Filtrar juegos activos para encontrar solo los que están en 'lobby'
         const joinableGames = Array.from(activeGames.values())
             .filter(game => game.status === 'lobby')
             .map(game => ({
@@ -204,7 +206,6 @@ io.on('connection', (socket) => {
             }));
 
 
-        // Enviar la lista solo al cliente que la pidió
         socket.emit('gameList', joinableGames);
     });
 
@@ -220,8 +221,7 @@ io.on('connection', (socket) => {
 
 
             console.log(`[SALA] Jugador ${socket.id} abandono sala ${roomId}`);
-
-            // Si el jugador estaba en una partida 'playing' o 'finished'
+            
             if (game.status === 'playing' && game.gameLogic) {
                 game.gameLogic.removePlayer(socket.id);
             }
@@ -273,15 +273,13 @@ io.on('connection', (socket) => {
             // --- v1.2: LÓGICA DE GAME OVER MODIFICADA ---
             if (game.gameLogic.isGameOver()) {
                 clearInterval(game.gameLoopInterval);
-                game.status = 'finished'; // Cambia a 'finished' en lugar de destruir
+                game.status = 'finished'; 
                 const finalData = game.gameLogic.getFinalScore();
-
+                
                 io.to(roomId).emit('gameOver', finalData);
                 console.log(`[GAME OVER] Sala ${roomId} - Puntuacion: ${finalData.finalScore}, Oleada: ${finalData.finalWave}`);
-                // Ya no se limpia la sala aquí, se espera a los jugadores
                 return;
             }
-            // --- FIN MODIFICACIÓN v1.2 ---
 
 
             const snapshot = game.gameLogic.getGameStateSnapshot(); 
@@ -306,29 +304,24 @@ io.on('connection', (socket) => {
     // --- v1.2: NUEVO LISTENER POST-PARTIDA ---
     socket.on('returnToLobby', (roomId) => {
         const game = activeGames.get(roomId);
-
-        // Solo el host puede reiniciar el lobby (o podría ser cualquiera)
-        // Por ahora, cualquiera puede reiniciar si la partida terminó
+        
         if (game && game.status === 'finished') {
-
-            // Si la lógica del juego aún existe, la reseteamos
+            
             if (game.gameLogic) {
-                game.gameLogic = null; // Libera la instancia del juego
+                game.gameLogic = null;
                 console.log(`[LOBBY] Reseteando GameLogic para sala ${roomId}`);
             }
 
-            // Si el estado es 'finished', lo cambiamos a 'lobby'
+
             game.status = 'lobby';
 
-            // Forzar una actualización de host por si acaso
-            handleGameCleanup(roomId);
 
-            // Notificar a todos que volvemos al lobby
+            handleGameCleanup(roomId);
+            
             io.to(roomId).emit('lobbyUpdate', game.getLobbyData());
             console.log(`[LOBBY] Sala ${roomId} ha vuelto a la sala de espera.`);
         }
     });
-    // --- FIN NUEVO LISTENER v1.2 ---
 
 
     socket.on('disconnect', () => {

@@ -1,19 +1,19 @@
 /**
- * server/gameLogic.js - ACTUALIZADO v1.3 (Paso 2: El Núcleo)
+ * server/gameLogic.js - ACTUALIZADO v1.3 (Paso 3: Lógica de 2 Fases)
  *
- * ¡CAMBIO DE LÓGICA DE JUEGO!
- * 1. Nueva entidad: ServerZombieCore.
- * 2. Constructor: Ya no spawnea zombies, llama a `spawnNewCore()` para
- * iniciar la oleada 1.
- * 3. Lógica de Oleadas: Una oleada termina cuando `zombieCore` es nulo
- * Y `zombies.size` es 0.
- * 4. spawnNewCore(): Calcula la vida/ritmo del núcleo y lo coloca
- * en un lugar seguro del mapa.
- * 5. update(): Ahora gestiona el temporizador de spawn del núcleo
- * y llama a `spawnZombieAtCore()` a un ritmo fijo.
- * 6. Lógica de Balas: Ahora comprueban la colisión con el núcleo PRIMERO.
- * Si el núcleo es destruido, `this.entities.zombieCore` se pone a `null`.
- * 7. getGameStateSnapshot(): Ahora incluye la información del núcleo.
+ * 1. Nueva clase: ServerZombieCore.
+ * - Ahora contiene la lógica de 2 fases.
+ * - `currentPhase`: 'phase1' o 'phase2'.
+ * - `phase1ZombieAmount`: Cantidad de zombies para la Fase 1 (escalada).
+ * - `phase1ZombiesSpawned`: Contador.
+ * - `spawnRatePhase1`, `spawnRatePhase2`: Ritmos de aparición calculados.
+ * - `currentSpawnRate`: El ritmo que se está usando ahora.
+ * 2. Constructor: Llama a `spawnNewCore()` (igual que en Paso 2).
+ * 3. update():
+ * - La lógica de spawn del núcleo ha sido movida a la clase Core.
+ * - El bucle principal ahora solo comprueba el timer del núcleo.
+ * - La clase Core cambia de fase internamente.
+ * 4. Lógica de Balas: (Igual que en Paso 2) Golpea al núcleo.
  */
 
 
@@ -87,7 +87,6 @@ class ServerZombie extends ServerEntity {
         if (players.size === 0 || !costMap) return null;
 
 
-        // 1. Encontrar el jugador vivo más cercano (SOLO para atacar)
         let target = null;
         let minDistanceSq = Infinity;
 
@@ -110,7 +109,6 @@ class ServerZombie extends ServerEntity {
         if (!target) return null;
 
 
-        // 2. Lógica de Ataque
         const distance = Math.sqrt(minDistanceSq);
         if (distance <= this.radius + target.radius + 10) {
             const currentTime = Date.now();
@@ -118,11 +116,10 @@ class ServerZombie extends ServerEntity {
                 target.health = Math.max(0, target.health - this.attackDamage);
                 this.lastAttackTime = currentTime;
             }
-            return null; // No te muevas si estás atacando
+            return null;
         }
 
 
-        // 3. Lógica de Movimiento (Seguir el CostMap)
         const currentGrid = mapGenerator.worldToGrid(this.x, this.y);
         if (!mapGenerator.isValid(currentGrid.x, currentGrid.y)) {
             return null;
@@ -148,7 +145,6 @@ class ServerZombie extends ServerEntity {
         }
 
 
-        // 4. Calcular el vector de movimiento
         if (bestDir.dx !== 0 || bestDir.dy !== 0) {
             const targetCellX = currentGrid.x + bestDir.dx;
             const targetCellY = currentGrid.y + bestDir.dy;
@@ -173,10 +169,7 @@ class ServerZombie extends ServerEntity {
 
 
 /**
- * v1.3: NUEVA CLASE PARA EL NÚCLEO
- * Almacena el estado del nexo/spawner.
- * Se trata como una entidad circular en el servidor
- * para simplificar las colisiones.
+ * v1.3: CLASE DE NÚCLEO MODIFICADA (LÓGICA DE 2 FASES)
  */
 class ServerZombieCore {
     constructor(id, x, y, wave, config) {
@@ -187,26 +180,73 @@ class ServerZombieCore {
         this.wave = wave;
 
 
-        // v1.3: El tamaño es 1 celda (40x40). El radio es la mitad.
         this.size = 40;
         this.radius = 20; 
 
 
-        // v1.3: Calcular vida y ritmo de spawn basado en la oleada
-        // Vida: Aumenta un 40% por oleada (compuesto)
+        // Lógica de 2 Fases
+        this.currentPhase = 'phase1';
+        this.phase1ZombiesSpawned = 0;
+
+
+        // 1. Calcular Cantidad Fase 1
+        // Usa "initialZombies" como base y "waveMultiplier" como escalado
+        this.phase1ZombieAmount = Math.floor(config.initialZombies * Math.pow(config.waveMultiplier, wave - 1));
+
+
+        // 2. Calcular Ritmo Fase 2 (Lento)
+        // Usa "coreBaseSpawnRate" y escala 10% más rápido por oleada
+        this.spawnRatePhase2 = Math.max(1000, config.coreBaseSpawnRate * Math.pow(0.9, wave - 1));
+
+
+        // 3. Calcular Ritmo Fase 1 (Rápido)
+        // Usa "coreBurstSpawnMultiplier" sobre el ritmo de la Fase 2
+        this.spawnRatePhase1 = Math.max(250, this.spawnRatePhase2 / config.coreBurstSpawnMultiplier); // Mín 250ms
+
+
+        // 4. Establecer estado inicial
+        this.currentSpawnRate = this.spawnRatePhase1;
+        this.spawnTimer = this.currentSpawnRate; // Tiempo para el primer spawn
+
+
+        // Vida del Núcleo
         this.maxHealth = Math.floor(config.coreBaseHealth * Math.pow(1.4, wave - 1));
         this.health = this.maxHealth;
-
-
-        // Ritmo: Se reduce un 10% por oleada (compuesto), con un mín. de 1 seg.
-        this.spawnRate = Math.max(1000, config.coreBaseSpawnRate * Math.pow(0.9, wave - 1));
-        this.spawnTimer = this.spawnRate; // Tiempo para el próximo spawn
+        
+        console.log(`[CORE OLEADA ${wave}] Fase 1: ${this.phase1ZombieAmount} zombies @ ${this.spawnRatePhase1.toFixed(0)}ms. Fase 2: Ritmo de ${this.spawnRatePhase2.toFixed(0)}ms. Vida: ${this.maxHealth}`);
     }
 
 
     /**
-     * v1.3: Devuelve los datos que el cliente necesita
+     * v1.3: Nueva función de actualización del Núcleo
+     * Se llama desde GameLogic.update()
+     * @returns {boolean} - Devuelve 'true' si debe spawnear un zombie.
      */
+    update(deltaTime) {
+        this.spawnTimer -= deltaTime;
+        
+        if (this.spawnTimer <= 0) {
+            this.spawnTimer += this.currentSpawnRate; // Añadir la duración (contabiliza exceso)
+            
+            // Lógica de cambio de fase (si aplica)
+            if (this.currentPhase === 'phase1') {
+                this.phase1ZombiesSpawned++;
+                
+                if (this.phase1ZombiesSpawned >= this.phase1ZombieAmount) {
+                    // CAMBIAR A FASE 2
+                    this.currentPhase = 'phase2';
+                    this.currentSpawnRate = this.spawnRatePhase2;
+                    this.spawnTimer = this.currentSpawnRate; // Resetear timer para la nueva fase
+                    console.log(`[CORE OLEADA ${this.wave}] Fase 1 completada. Iniciando Fase 2 (Ritmo: ${this.currentSpawnRate.toFixed(0)}ms).`);
+                }
+            }
+            
+            return true; // ¡Spawnear!
+        }
+        return false; // No spawnear
+    }
+
+
     getSnapshot() {
         return {
             id: this.id,
@@ -243,12 +283,12 @@ class GameLogic {
             players: new Map(), 
             zombies: new Map(), 
             bullets: new Map(),
-            zombieCore: null // v1.3: El núcleo se gestiona aquí
+            zombieCore: null
         };
 
 
         this.score = 0;
-        this.wave = 0; // v1.3: Empezar en 0, spawnNewCore() la pondrá en 1
+        this.wave = 0;
         this.running = true;
         this.lastUpdateTime = Date.now();
 
@@ -264,27 +304,19 @@ class GameLogic {
         });
 
 
-        // v1.3: Iniciar la primera oleada creando el primer núcleo
         this.spawnNewCore(); 
         this.updatePlayerCostMap();
     }
 
 
-    /**
-     * v1.3: NUEVA FUNCIÓN PARA INICIAR OLEADAS
-     * Se llama al inicio y cada vez que se completa una oleada.
-     */
     spawnNewCore() {
-        this.wave++; // Incrementar oleada
+        this.wave++;
         
-        // 1. Obtener posiciones de jugadores para spawn seguro
         const playerPositions = Array.from(this.entities.players.values())
             .filter(p => p.health > 0)
             .map(p => ({ x: p.x, y: p.y }));
 
 
-        // 2. Pedir al mapa un spawn lejos de los jugadores (mín 20 celdas)
-        // v1.3: Nota: `getRandomOpenCellPosition` fue modificado en v1.2
         const spawnPos = this.map.getRandomOpenCellPosition(playerPositions, 20);
 
 
@@ -294,24 +326,15 @@ class GameLogic {
         }
 
 
-        // 3. Crear la nueva entidad Núcleo
         const coreId = `core_${this.wave}`;
+        // v1.3: La nueva clase Core contiene toda la lógica de oleada
         this.entities.zombieCore = new ServerZombieCore(coreId, spawnPos.x, spawnPos.y, this.wave, this.config);
 
 
-        console.log(`[SERVER] Iniciando oleada ${this.wave}. Núcleo spawneado en (${spawnPos.x.toFixed(0)}, ${spawnPos.y.toFixed(0)}).`);
-        console.log(`[SERVER] Vida: ${this.entities.zombieCore.maxHealth}, Ritmo: ${this.entities.zombieCore.spawnRate}ms`);
-
-
-        // 4. Forzar una actualización del pathfinding
         this.pathfindUpdateTimer = this.pathfindUpdateInterval;
     }
 
 
-    /**
-     * v1.3: NUEVA FUNCIÓN PARA SPAWNEAR 1 ZOMBIE
-     * Spawnea un zombie cerca del núcleo.
-     */
     spawnZombieAtCore() {
         if (!this.entities.zombieCore) return;
 
@@ -320,7 +343,6 @@ class GameLogic {
         const gridPos = this.map.worldToGrid(core.x, core.y);
 
 
-        // v1.3: `findValidSpawnNear` debe ser añadido a serverMapGenerator.js
         const spawnPos = this.map.findValidSpawnNear(gridPos.x, gridPos.y);
 
 
@@ -336,9 +358,6 @@ class GameLogic {
     }
 
 
-    /**
-     * v1.2: Pathfinding multijugador
-     */
     updatePlayerCostMap() {
         const livingPlayers = Array.from(this.entities.players.values())
                                    .filter(p => p.health > 0);
@@ -355,9 +374,6 @@ class GameLogic {
     }
 
 
-    /**
-     * v1.1: Colisión de 5 puntos
-     */
     checkMapCollision(entity) {
         const radius = entity.radius;
         const checkPoints = [
@@ -379,9 +395,6 @@ class GameLogic {
     }
 
 
-    /**
-     * Colisión Círculo-Círculo
-     */
     checkEntityCollision(entityA, entityB) {
         const dx = entityB.x - entityA.x;
         const dy = entityB.y - entityA.y;
@@ -431,20 +444,16 @@ class GameLogic {
         }
 
 
-        // 2. Actualizar Jugadores (Colisión deslizante)
+        // 2. Actualizar Jugadores
         this.entities.players.forEach(player => {
             if (player.health <= 0) {
                 player.isDead = true;
                 return;
             }
-
-
             const oldX = player.x;
             const oldY = player.y;
             const moveX = player.input.moveX * player.speed;
             const moveY = player.input.moveY * player.speed;
-
-
             player.x += moveX;
             if (this.checkMapCollision(player)) {
                 player.x = oldX;
@@ -453,21 +462,17 @@ class GameLogic {
             if (this.checkMapCollision(player)) {
                 player.y = oldY;
             }
-
-
             if (player.input.isShooting) {
                 this.createBullet(player.id, player.x, player.y, player.input.shootX, player.input.shootY);
             }
         });
 
 
-        // 3. Actualizar Zombies (Colisión deslizante)
+        // 3. Actualizar Zombies
         this.entities.zombies.forEach(zombie => {
             const oldX = zombie.x;
             const oldY = zombie.y;
             const moveVector = zombie.updateAI(this.entities.players, this.playerCostMap, this.map, deltaTime);
-
-
             if (moveVector) {
                 zombie.x += moveVector.dx;
                 if (this.checkMapCollision(zombie)) {
@@ -481,21 +486,20 @@ class GameLogic {
         });
 
 
-        // --- v1.3: LÓGICA DEL NÚCLEO Y OLEADAS ---
+        // --- v1.3: LÓGICA DEL NÚCLEO Y OLEADAS (MODIFICADA) ---
         if (this.entities.zombieCore) {
-            // AÚN HAY NÚCLEO: Spawnear zombies
+            // AÚN HAY NÚCLEO: Actualizarlo
             const core = this.entities.zombieCore;
-            core.spawnTimer -= deltaTime;
+            const shouldSpawn = core.update(deltaTime); // El núcleo gestiona su propio timer y fases
             
-            if (core.spawnTimer <= 0) {
-                core.spawnTimer += core.spawnRate; // Resetear (contabilizando exceso)
+            if (shouldSpawn) {
                 this.spawnZombieAtCore();
             }
         } else {
             // NO HAY NÚCLEO: Comprobar si la oleada ha terminado
             if (this.entities.zombies.size === 0) {
-                // ¡Oleada terminada! (Núcleo muerto Y zombies muertos)
-                this.score += 100 * this.wave; // Bonus de oleada
+                // ¡Oleada terminada!
+                this.score += 100 * this.wave;
                 this.spawnNewCore(); // Iniciar siguiente oleada
             }
         }
@@ -513,32 +517,29 @@ class GameLogic {
 
             if (this.checkMapCollision(bullet)) {
                 bulletsToRemove.push(bullet.id);
-                return; // Bala golpea muro
+                return;
             }
 
 
-            // v1.3: Comprobar colisión con el Núcleo PRIMERO
             if (this.entities.zombieCore) {
                 const core = this.entities.zombieCore;
-                // Usamos la colisión de círculo-círculo
                 if (this.checkEntityCollision(bullet, core)) {
                     bulletsToRemove.push(bullet.id);
                     core.health -= bullet.damage;
                     
                     if (core.health <= 0) {
-                        this.entities.zombieCore = null; // ¡Núcleo destruido!
-                        this.score += 500 * this.wave; // Bonus por destruir
+                        this.entities.zombieCore = null;
+                        this.score += 500 * this.wave;
                         const player = this.entities.players.get(bullet.ownerId);
                         if (player) {
-                            player.kills++; // Dar el "kill" del núcleo
+                            player.kills++;
                         }
                     }
-                    return; // Bala consumida por el núcleo
+                    return;
                 }
             }
 
 
-            // Si no golpea el núcleo, comprobar zombies
             this.entities.zombies.forEach(zombie => {
                 if (this.checkEntityCollision(bullet, zombie)) {
                     zombie.health -= bullet.damage;
@@ -563,10 +564,6 @@ class GameLogic {
     }
 
 
-    /**
-     * v1.3: MODIFICADO
-     * Añadido el estado del núcleo al snapshot.
-     */
     getGameStateSnapshot() {
         return {
             players: Array.from(this.entities.players.values()).map(p => ({
@@ -591,7 +588,6 @@ class GameLogic {
                 x: b.x,
                 y: b.y
             })),
-            // v1.3: Enviar datos del núcleo (o null si no existe)
             zombieCore: this.entities.zombieCore ? this.entities.zombieCore.getSnapshot() : null,
             score: this.score,
             wave: this.wave

@@ -204,7 +204,7 @@
             font-size: 1.1em !important;
         }
 
-        /* --- BOTONES (v1.2 - Corregido con <span>) --- */
+        /* --- BOTONES (v1.3 - Centrado Corregido) --- */
         .btn {
             padding: 14px;
             margin: 10px 0;
@@ -217,22 +217,25 @@
             letter-spacing: 2px;
             color: white;
             cursor: pointer;
-            position: relative; /* Clave para el centrado del span */
+            position: relative; /* ¡CLAVE! para el centrado absoluto del span */
             overflow: hidden;
             clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
             transition: all 0.3s;
             
-            /* Fallback de centrado (para botones sin span) */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            line-height: normal; /* v1.2: Añadido */
-            text-align: center;  /* v1.2: Añadido */
+            /* v1.3: Propiedades de Flex eliminadas para evitar conflicto */
+            line-height: normal;
+            text-align: center;
         }
         
+        /* v1.3: FIX DE CENTRADO ABSOLUTO (para todos los botones) */
         .btn span {
-            position: relative; /* v1.2: Cambiado de absolute a relative */
-            z-index: 1;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%; /* Asegura centrado de texto largo */
+            line-height: 1; /* Previene altura extra */
+            pointer-events: none; /* Permite que el clic atraviese al botón */
         }
 
         .btn-block { width: 100%; }
@@ -491,7 +494,7 @@
             margin-top: 5px;
         }
 
-        /* Botón de unirse (Sin <span>) */
+        /* Botón de unirse (Sin <span>, necesita centrado fallback) */
         .room-join-button {
             background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-hover) 100%);
             color: var(--color-primario-texto);
@@ -510,6 +513,10 @@
             clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
             transition: all 0.3s;
             border: none;
+            /* v1.3: Añadido centrado flex por si acaso */
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .room-join-button:hover:not(:disabled) {
              box-shadow: 0 0 30px var(--color-primario-sombra), 0 8px 0 var(--color-primario-sombra-oscura);
@@ -528,14 +535,13 @@
             text-shadow: 0 0 10px var(--color-acento-principal);
         }
         
-        /* v1.2: Contenedor para botones de Game Over */
         .game-over-actions {
             display: flex;
             gap: 15px;
             margin-top: 20px;
         }
         .game-over-actions .btn {
-            flex: 1; /* Ocupar espacio equitativo */
+            flex: 1;
         }
 
 
@@ -552,7 +558,6 @@
             .setting-item input[type="number"], .setting-item select { width: 100%; }
             #setting_controlType { width: 100%; }
             
-            /* v1.3: Ajuste responsive para sliders */
             .slider-value { margin-left: 0; margin-top: 8px; text-align: left !important; }
             input[type="range"].slider-control { margin-top: 15px; }
             
@@ -582,6 +587,7 @@
         <canvas id="gameCanvas"></canvas>
     </div>
 
+    <!-- v1.3: Todos los botones con <span> -->
     <div id="menuScreen" class="menu-container">
         <h2>Zombie Shooter</h2>
         <input type="text" id="playerNameInput" placeholder="INTRODUCE TU NOMBRE" maxlength="15" value="Player1">

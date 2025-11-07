@@ -1,9 +1,10 @@
 /**
- * server/serverMapGenerator.js - ACTUALIZADO
- * - Añadido `MIN_SPAWN_DISTANCE_SQUARED` en el constructor.
- * - Añadida una función helper `isSafeSpawn` para comprobar la distancia.
- * - `getRandomOpenCellPosition` ahora acepta `playerPositions` y
- * usa el helper para encontrar una celda aleatoria segura.
+ * server/serverMapGenerator.js - ACTUALIZADO v1.3 (Paso 2)
+ *
+ * 1. (v1.2) `getRandomOpenCellPosition` modificado para
+ * aceptar `playerPositions` y una `minDistance` para spawn seguro.
+ * 2. (v1.3) Nueva función helper `findValidSpawnNear(gridX, gridY)`
+ * para encontrar un lugar donde el Núcleo pueda spawnear un zombie.
  */
 
 
@@ -13,14 +14,6 @@ class ServerMapGenerator {
         this.cellSize = config.cellSize || 40;
         this.numRooms = config.roomCount || 6;
         this.corridorWidth = config.corridorWidth || 3;
-
-
-        // --- v1.2: NUEVA CONSTANTE ---
-        // Distancia mínima (en unidades del mundo) al cuadrado.
-        // 15 celdas * 40 unidades/celda = 600 unidades. 600*600 = 360000
-        // Usamos el cuadrado para evitar cálculos de raíz cuadrada (más rápido).
-        this.MIN_SPAWN_DISTANCE_SQUARED = (15 * this.cellSize) * (15 * this.cellSize);
-        // --- FIN v1.2 ---
 
 
         this.map = this.generateMapArray();
@@ -212,14 +205,12 @@ class ServerMapGenerator {
     getSpawnPoint() {
         if (this.rooms.length > 0) {
             const room = this.rooms[0];
-            return {
-                x: (room.x + room.w / 2) * this.cellSize,
-                y: (room.y + room.h / 2) * this.cellSize
-            };
+            return this.gridToWorld(
+                Math.floor(room.x + room.w / 2),
+                Math.floor(room.y + room.h / 2)
+            );
         }
-
-
-        // Fallback: Buscar la PRIMERA celda abierta (0)
+        // Fallback
         for (let y = 0; y < this.gridSize; y++) {
             for (let x = 0; x < this.gridSize; x++) {
                 if (this.map[y][x] === 0) {
@@ -227,103 +218,75 @@ class ServerMapGenerator {
                 }
             }
         }
-
-
-        // Si todo falla (mapa sólido?)
-        const center = Math.floor(this.gridSize / 2);
-        return this.gridToWorld(center, center);
+        // Si todo falla
+        return this.gridToWorld(Math.floor(this.gridSize / 2), Math.floor(this.gridSize / 2));
     }
 
 
-    // --- v1.2: NUEVA FUNCIÓN HELPER ---
     /**
-     * Comprueba si una posición del mundo está lo suficientemente lejos de todos los jugadores.
-     * @param {object} spawnPos - {x, y} en coordenadas del mundo
-     * @param {Array} playerPositions - Array de {x, y} de los jugadores
-     * @returns {boolean} - true si es un lugar seguro, false si está demasiado cerca
-     */
-    isSafeSpawn(spawnPos, playerPositions) {
-        if (playerPositions.length === 0) {
-            return true; // Seguro si no hay jugadores que comprobar
-        }
-
-
-        for (const playerPos of playerPositions) {
-            const dx = spawnPos.x - playerPos.x;
-            const dy = spawnPos.y - playerPos.y;
-            const distSq = dx * dx + dy * dy;
-
-
-            if (distSq < this.MIN_SPAWN_DISTANCE_SQUARED) {
-                return false; // Demasiado cerca
-            }
-        }
-        return true; // Está lo suficientemente lejos de todos los jugadores
-    }
-    // --- FIN v1.2 ---
-
-
-    /**
+     * v1.2: Modificado para spawn seguro
      * Obtiene una posición aleatoria en una celda abierta
-     * --- v1.2: MODIFICADO ---
-     * Ahora acepta playerPositions y busca una celda aleatoria LEJOS de ellos.
+     * que esté a una `minDistance` (en celdas) de cualquier
+     * `playerPositions` (en coordenadas del mundo).
      */
-    getRandomOpenCellPosition(playerPositions = []) {
+    getRandomOpenCellPosition(playerPositions = [], minDistance = 15) {
         let attempts = 0;
-        const maxAttempts = 200; // Aumentamos intentos por si acaso
+        const maxAttempts = 200; // Aumentado para el spawn seguro
+        const minDistanceSq = minDistance * minDistance; // Distancia en celdas, al cuadrado
 
 
         while (attempts < maxAttempts) {
-            attempts++;
-
-            // 1. Elegir una celda aleatoria en todo el mapa
             const x = Math.floor(Math.random() * this.gridSize);
             const y = Math.floor(Math.random() * this.gridSize);
 
 
-            // 2. Comprobar si es transitable (suelo)
-            if (this.map[y][x] === 0) { 
-                const worldPos = this.gridToWorld(x, y);
+            if (this.map[y][x] === 0) { // Es una celda abierta
+                let isSafe = true;
 
 
-                // 3. Comprobar si está lejos de los jugadores
-                if (this.isSafeSpawn(worldPos, playerPositions)) {
-                    return worldPos; // ¡Éxito! Encontramos un lugar seguro.
+                // Comprobar distancia contra todos los jugadores
+                for (const playerPos of playerPositions) {
+                    const playerGridPos = this.worldToGrid(playerPos.x, playerPos.y);
+                    const dx = x - playerGridPos.x;
+                    const dy = y - playerGridPos.y;
+                    const distSq = dx * dx + dy * dy;
+
+
+                    if (distSq < minDistanceSq) {
+                        isSafe = false;
+                        break; // Demasiado cerca, probar otra celda
+                    }
+                }
+
+
+                if (isSafe) {
+                    return this.gridToWorld(x, y);
                 }
             }
-            // Si la celda es un muro O está demasiado cerca, el bucle continúa...
+            attempts++;
         }
 
 
-        // Fallback: Si no encontramos un lugar aleatorio seguro después de 200 intentos
-        // (mapa pequeño o jugadores muy separados),
-        // simplemente devolvemos el punto de spawn principal.
-        console.warn(`[SPAWN] No se pudo encontrar un punto de spawn aleatorio seguro tras ${maxAttempts} intentos.`);
-
-        // Comprobamos el punto de spawn principal como último recurso
-        const spawnPoint = this.getSpawnPoint();
-        if (this.isSafeSpawn(spawnPoint, playerPositions)) {
-            return spawnPoint;
+        // Fallback: si no encontramos un lugar "seguro",
+        // simplemente devuelve un lugar aleatorio
+        console.warn(`[MAP] No se pudo encontrar un spawn seguro. Usando fallback.`);
+        attempts = 0;
+        while (attempts < maxAttempts) {
+             const x = Math.floor(Math.random() * this.gridSize);
+             const y = Math.floor(Math.random() * this.gridSize);
+             if (this.map[y][x] === 0) {
+                 return this.gridToWorld(x, y);
+             }
+             attempts++;
         }
 
 
-        // Fallback definitivo: si incluso el spawn principal está demasiado cerca,
-        // devolvemos una posición aleatoria en la primera sala (mejor que nada).
-        if (this.rooms.length > 0) {
-            const room = this.rooms[0];
-            const x = room.x + 1 + Math.floor(Math.random() * (room.w - 2));
-            const y = room.y + 1 + Math.floor(Math.random() * (room.h - 2));
-            return this.gridToWorld(x, y);
-        }
-
-
-        return spawnPoint; // Fallback final
+        return this.getSpawnPoint(); // Fallback definitivo
     }
 
 
     /**
      * Genera un grid de navegación para pathfinding
-     * Retorna una matriz donde 0 = transitable, 1 = muro
      */
     getNavigationGrid() {
         return this.map.map(row => [...row]);
@@ -337,6 +300,41 @@ class ServerMapGenerator {
         return x >= 0 && x < this.gridSize &&
                y >= 0 && y < this.gridSize &&
                this.map[y][x] === 0; // 0 = transitable
+    }
+
+
+    /**
+     * v1.3: NUEVA FUNCIÓN HELPER
+     * Encuentra una celda abierta adyacente (N, S, E, O)
+     * a la celda del núcleo para spawnear un zombie.
+     */
+    findValidSpawnNear(gridX, gridY) {
+        const directions = [
+            { x: 0, y: -1 }, // Arriba
+            { x: 0, y: 1 },  // Abajo
+            { x: 1, y: 0 },  // Derecha
+            { x: -1, y: 0 }  // Izquierda
+        ];
+
+
+        // Barajar direcciones para que el spawn no sea predecible
+        for (let i = directions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [directions[i], directions[j]] = [directions[j], directions[i]];
+        }
+
+
+        for (const dir of directions) {
+            const newX = gridX + dir.x;
+            const newY = gridY + dir.y;
+            if (this.isValid(newX, newY)) {
+                return this.gridToWorld(newX, newY); // Devuelve coords del mundo
+            }
+        }
+
+
+        // Fallback: si está bloqueado, spawnea en su propia celda
+        return this.gridToWorld(gridX, gridY);
     }
 
 

@@ -1,6 +1,6 @@
 {
   "name": "zombie-shooter-server",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "Servidor autoritativo para el juego Zombie Shooter con Express y Socket.IO.",
   "main": "server/server.js",
     "scripts": {

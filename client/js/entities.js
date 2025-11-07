@@ -1,8 +1,7 @@
 /**
  * client/js/entities.js
- * Contiene las clases de las entidades del cliente.
- * Su función principal es el DIBUJO (renderizado) de la posición y estado
- * que es determinado por el servidor. No tienen lógica de física local.
+ * v1.3: Añadida la clase ZombieCore.
+ * v1.2: Color de Player cambiado a azul.
  */
 
 
@@ -46,15 +45,13 @@ class Entity {
 
 /**
  * Representa al jugador local o a un compañero.
+ * v1.2: Color de otros jugadores cambiado a azul.
  */
 class Player extends Entity {
     constructor(id, x, y, isMe, name = "Jugador") {
         const radius = 15;
-
-        // --- v1.2: MODIFICADO ---
-        // Ambos jugadores son azules. 'me' (local) es un azul brillante, 'otros' es un azul más oscuro.
-        const color = isMe ? '#2596be' : '#477be3'; // Azul: local, Azul oscuro: otros
-
+        // Colores más visibles y distintivos
+        const color = isMe ? '#2596be' : '#477be3'; // Azul Cyan: local, Azul: otros
         super(id, x, y, radius, color);
 
 
@@ -99,9 +96,7 @@ class Player extends Entity {
 
 
         // 3. DIBUJAR NOMBRE
-        // --- v1.2: MODIFICADO ---
-        // El nombre del jugador local sigue siendo Cyan, el de otros es Blanco estándar.
-        ctx.fillStyle = this.isMe ? '#00FFFF' : '#FFF'; 
+        ctx.fillStyle = this.isMe ? '#00FFFF' : '#FFF'; // Cyan para ti, Blanco para otros
         ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
         ctx.fillText(this.name, worldX, worldY - this.radius - 12);
@@ -190,7 +185,68 @@ class Bullet extends Entity {
 }
 
 
-// --- 5. GENERADOR DE MAPAS (SOLO PARA DIBUJO EN CLIENTE) ---
+// --- 5. NÚCLEO ZOMBIE (v1.3 NUEVO) ---
+
+
+/**
+ * Representa el Núcleo Zombie (Spawner).
+ * Dibuja un cuadrado en lugar de un círculo.
+ */
+class ZombieCore {
+    constructor(id, x, y, size, health, maxHealth) {
+        this.id = id;
+        this.x = x; // Centro X
+        this.y = y; // Centro Y
+        this.size = size; // Lado del cuadrado
+        this.health = health;
+        this.maxHealth = maxHealth;
+        this.color = '#4A044E'; // Violeta Oscuro
+        this.borderColor = '#FF00FF'; // Magenta brillante
+    }
+
+
+    draw(ctx) {
+        const halfSize = this.size / 2;
+        const worldX = this.x;
+        const worldY = this.y;
+
+
+        // 1. DIBUJAR CUERPO (Cuadrado)
+        ctx.fillStyle = this.color;
+        ctx.strokeStyle = this.borderColor;
+        ctx.lineWidth = 3;
+        
+        ctx.fillRect(worldX - halfSize, worldY - halfSize, this.size, this.size);
+        ctx.strokeRect(worldX - halfSize, worldY - halfSize, this.size, this.size);
+
+
+        // 2. DIBUJAR BARRA DE SALUD (Grande, encima)
+        const barWidth = this.size * 1.5;
+        const barHeight = 8;
+        const healthRatio = this.health / this.maxHealth;
+        const barY = worldY - halfSize - 15; // Posicionado encima
+
+
+        // Fondo de la barra
+        ctx.fillStyle = '#555';
+        ctx.fillRect(worldX - barWidth / 2, barY, barWidth, barHeight);
+
+
+        // Relleno de salud
+        ctx.fillStyle = '#FF00FF'; // Magenta
+        ctx.fillRect(worldX - barWidth / 2, barY, barWidth * healthRatio, barHeight);
+        
+        // Borde de la barra
+        ctx.strokeStyle = '#FFF';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(worldX - barWidth / 2, barY, barWidth, barHeight);
+    }
+}
+
+
+
+
+// --- 6. GENERADOR DE MAPAS (SOLO PARA DIBUJO EN CLIENTE) ---
 
 
 /**
@@ -245,9 +301,10 @@ class MapRenderer {
 }
 
 
-// Exportar clases para uso global (ya que no usamos módulos ES6)
+// Exportar clases para uso global
 window.Player = Player;
 window.Zombie = Zombie;
 window.Bullet = Bullet;
+window.ZombieCore = ZombieCore; // v1.3: Exportar nueva clase
 window.MapRenderer = MapRenderer;
 window.SCALE = 1.0;

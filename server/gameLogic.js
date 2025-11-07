@@ -339,7 +339,7 @@ class GameLogic {
 
         for (let i = 0; i < count; i++) {
             const zombieId = `zombie_${Date.now()}_${i}`; 
-            
+
             // Pedir una posición segura
             const randomSpawn = this.map.getRandomOpenCellPosition(playerPositions);
 
@@ -509,7 +509,7 @@ class GameLogic {
         if (this.entities.zombies.size === 0) {
             this.wave++;
             this.score += 100 * this.wave;
-            
+
             // 1. Obtener la base de la oleada anterior
             const baseCount = this.lastWaveZombieCount;
             // 2. Obtener el multiplicador (ej: 1.5 para 50%)

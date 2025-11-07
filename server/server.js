@@ -1,10 +1,7 @@
 /**
- * server/server.js - ACTUALIZADO v1.3 (Paso 1)
+ * server/server.js - ACTUALIZADO v1.3 (Paso 3)
  *
- * Esta versión incluye:
- * 1. (v1.2) Lógica de 'finished' y 'returnToLobby'.
- * 2. (v1.3) Añadidas las nuevas variables de configuración
- * (coreBaseHealth, coreBaseSpawnRate) al DEFAULT_CONFIG
+ * 1. (v1.3) Añadida 'coreBurstSpawnMultiplier' al DEFAULT_CONFIG
  * y a la lógica de creación de la sala.
  */
 
@@ -31,7 +28,6 @@ const userToRoom = new Map();
 
 
 // --- v1.3: MODIFICADO ---
-// Añadidas variables del Núcleo
 const DEFAULT_CONFIG = {
     playerHealth: 100,
     playerSpeed: 6,
@@ -45,11 +41,11 @@ const DEFAULT_CONFIG = {
     mapSize: 60,
     roomCount: 6,
     corridorWidth: 3,
-    initialZombies: 5,
-    waveMultiplier: 1.5,
-    // v1.3: Nuevas variables
+    initialZombies: 10, // Zombies Fase 1 (Oleada 1)
+    waveMultiplier: 1.5, // Aum. Zombies Fase 1 (+50%)
     coreBaseHealth: 500,
-    coreBaseSpawnRate: 5000
+    coreBaseSpawnRate: 5000, // Ritmo Fase 2 (ms)
+    coreBurstSpawnMultiplier: 2.5 // Ritmo Fase 1 (x2.5)
 };
 
 
@@ -70,7 +66,6 @@ class Game {
         this.gameLogic = null;
         this.gameLoopInterval = null;
         // v1.3: Asegurarse que la config fusionada
-        // tenga los defaults si faltan
         this.config = { ...DEFAULT_CONFIG, ...(config || {}) };
     }
 
@@ -193,9 +188,6 @@ io.on('connection', (socket) => {
     });
 
 
-    /**
-     * v1.1: Petición de lista de salas
-     */
     socket.on('requestGameList', () => {
         const joinableGames = Array.from(activeGames.values())
             .filter(game => game.status === 'lobby')
@@ -204,8 +196,6 @@ io.on('connection', (socket) => {
                 hostName: game.players.find(p => p.isHost)?.name || 'Desconocido',
                 playerCount: game.players.length
             }));
-
-
         socket.emit('gameList', joinableGames);
     });
 
@@ -249,7 +239,6 @@ io.on('connection', (socket) => {
         const playerData = game.players.map(p => ({ id: p.id, name: p.name }));
 
 
-        // Pasar configuracion al GameLogic
         game.gameLogic = new GameLogic(playerData, game.config);
         game.status = 'playing';
 
@@ -270,7 +259,6 @@ io.on('connection', (socket) => {
             game.gameLogic.update(); 
 
 
-            // --- v1.2: LÓGICA DE GAME OVER MODIFICADA ---
             if (game.gameLogic.isGameOver()) {
                 clearInterval(game.gameLoopInterval);
                 game.status = 'finished'; 
@@ -301,7 +289,6 @@ io.on('connection', (socket) => {
     });
 
 
-    // --- v1.2: NUEVO LISTENER POST-PARTIDA ---
     socket.on('returnToLobby', (roomId) => {
         const game = activeGames.get(roomId);
         

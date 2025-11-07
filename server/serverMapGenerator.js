@@ -275,7 +275,7 @@ class ServerMapGenerator {
 
         while (attempts < maxAttempts) {
             attempts++;
-            
+
             // 1. Elegir una celda aleatoria en todo el mapa
             const x = Math.floor(Math.random() * this.gridSize);
             const y = Math.floor(Math.random() * this.gridSize);
@@ -299,7 +299,7 @@ class ServerMapGenerator {
         // (mapa pequeño o jugadores muy separados),
         // simplemente devolvemos el punto de spawn principal.
         console.warn(`[SPAWN] No se pudo encontrar un punto de spawn aleatorio seguro tras ${maxAttempts} intentos.`);
-        
+
         // Comprobamos el punto de spawn principal como último recurso
         const spawnPoint = this.getSpawnPoint();
         if (this.isSafeSpawn(spawnPoint, playerPositions)) {

@@ -1,16 +1,10 @@
 /**
- * client/js/game.js - ACTUALIZADO v1.3 (Paso 1)
+ * client/js/game.js - ACTUALIZADO v1.3 (Paso 3)
  *
- * Esta versión incluye:
- * 1. (v1.2) Corrección de 'calculateAimVector' (paralaje).
- * 2. (v1.2) HUD adaptable (`drawHUD`).
- * 3. (v1.2) Minimapa actualizado (color y posición).
- * 4. (v1.2) Lógica del slider de oleadas (10-100% -> 1.1-2.0).
- * 5. (v1.2) Lógica de Game Over (Continuar/Salir).
- * 6. (v1.3) Añadidas nuevas variables de config (Core) a
- * DEFAULT_CONFIG, load, save, apply, read, presets.
- * 7. (v1.3) Añadido `clientState.zombieCoreEntity` para
- * almacenar la nueva entidad.
+ * 1. (v1.3) Añadida nueva config 'coreBurstSpawnMultiplier'.
+ * 2. (v1.3) Actualizado DEFAULT_CONFIG, load, save, apply, read, presets
+ * para la nueva variable y los nombres cambiados.
+ * 3. (v1.3) Añadido listener para el nuevo slider.
  */
 
 
@@ -25,7 +19,6 @@ const SERVER_TICK_RATE = 30;
 
 
 // --- v1.3: MODIFICADO ---
-// Añadidas variables del Núcleo
 const DEFAULT_CONFIG = {
     controlType: 'auto',
     playerHealth: 100,
@@ -40,11 +33,11 @@ const DEFAULT_CONFIG = {
     mapSize: 60,
     roomCount: 6,
     corridorWidth: 3,
-    initialZombies: 5,
-    waveMultiplier: 1.5,
-    // v1.3: Nuevas variables
+    initialZombies: 10, // Zombies Fase 1 (Oleada 1)
+    waveMultiplier: 1.5, // Aum. Zombies Fase 1 (+50%)
     coreBaseHealth: 500,
-    coreBaseSpawnRate: 5000
+    coreBaseSpawnRate: 5000, // Ritmo Fase 2 (ms)
+    coreBurstSpawnMultiplier: 2.5 // Ritmo Fase 1 (x2.5)
 };
 
 
@@ -57,7 +50,6 @@ function loadConfig() {
     const saved = localStorage.getItem('zombieGameConfig');
     if (saved) {
         try {
-            // Fusionar defaults con guardado para no romper con nuevas configs
             gameConfig = {...DEFAULT_CONFIG, ...JSON.parse(saved)};
         } catch (e) {
             console.warn('Error cargando configuración, usando defaults:', e);
@@ -65,7 +57,7 @@ function loadConfig() {
         }
     }
     applyConfigToUI();
-    updateControlMethod(); // Determinar método de control al cargar
+    updateControlMethod();
 }
 
 
@@ -76,7 +68,6 @@ function saveConfig() {
 
 
 // --- v1.3: MODIFICADO ---
-// Aplicar configuración a los inputs del UI
 function applyConfigToUI() {
     document.getElementById('setting_controlType').value = gameConfig.controlType;
     document.getElementById('setting_playerHealth').value = gameConfig.playerHealth;
@@ -91,23 +82,28 @@ function applyConfigToUI() {
     document.getElementById('setting_mapSize').value = gameConfig.mapSize;
     document.getElementById('setting_roomCount').value = gameConfig.roomCount;
     document.getElementById('setting_corridorWidth').value = gameConfig.corridorWidth;
-    document.getElementById('setting_initialZombies').value = gameConfig.initialZombies;
-
-
-    // v1.2: Slider de oleadas
-    const sliderValue = Math.round((gameConfig.waveMultiplier - 1) * 100);
-    document.getElementById('setting_waveMultiplier_slider').value = sliderValue;
-    document.getElementById('waveMultiplierValue').textContent = `+${sliderValue}%`;
-    document.getElementById('setting_waveMultiplier').value = gameConfig.waveMultiplier;
     
-    // v1.3: Nuevos inputs
+    // Configuración de Oleadas
+    document.getElementById('setting_initialZombies').value = gameConfig.initialZombies;
     document.getElementById('setting_coreBaseHealth').value = gameConfig.coreBaseHealth;
     document.getElementById('setting_coreBaseSpawnRate').value = gameConfig.coreBaseSpawnRate;
+
+
+    // Slider 1: Aum. Zombies Fase 1 (1.1-2.0 -> 10-100)
+    const waveSliderValue = Math.round((gameConfig.waveMultiplier - 1) * 100);
+    document.getElementById('setting_waveMultiplier_slider').value = waveSliderValue;
+    document.getElementById('waveMultiplierValue').textContent = `+${waveSliderValue}%`;
+    document.getElementById('setting_waveMultiplier').value = gameConfig.waveMultiplier;
+    
+    // Slider 2: Ritmo Rápido Fase 1 (1.1-5.0 -> 110-500)
+    const burstSliderValue = Math.round(gameConfig.coreBurstSpawnMultiplier * 100);
+    document.getElementById('setting_coreBurstSpawnMultiplier_slider').value = burstSliderValue;
+    document.getElementById('coreBurstSpawnMultiplierValue').textContent = `x${(burstSliderValue / 100).toFixed(1)}`;
+    document.getElementById('setting_coreBurstSpawnMultiplier').value = gameConfig.coreBurstSpawnMultiplier;
 }
 
 
 // --- v1.3: MODIFICADO ---
-// Leer configuración desde el UI
 function readConfigFromUI() {
     gameConfig.controlType = document.getElementById('setting_controlType').value;
     gameConfig.playerHealth = parseInt(document.getElementById('setting_playerHealth').value);
@@ -122,20 +118,23 @@ function readConfigFromUI() {
     gameConfig.mapSize = parseInt(document.getElementById('setting_mapSize').value);
     gameConfig.roomCount = parseInt(document.getElementById('setting_roomCount').value);
     gameConfig.corridorWidth = parseInt(document.getElementById('setting_corridorWidth').value);
+    
+    // Configuración de Oleadas
     gameConfig.initialZombies = parseInt(document.getElementById('setting_initialZombies').value);
-    
-    // v1.2: Slider de oleadas
-    const sliderValue = parseInt(document.getElementById('setting_waveMultiplier_slider').value);
-    gameConfig.waveMultiplier = 1 + (sliderValue / 100);
-    
-    // v1.3: Nuevos inputs
     gameConfig.coreBaseHealth = parseInt(document.getElementById('setting_coreBaseHealth').value);
     gameConfig.coreBaseSpawnRate = parseInt(document.getElementById('setting_coreBaseSpawnRate').value);
+
+    // Slider 1: Aum. Zombies Fase 1 (10-100 -> 1.1-2.0)
+    const waveSliderValue = parseInt(document.getElementById('setting_waveMultiplier_slider').value);
+    gameConfig.waveMultiplier = 1 + (waveSliderValue / 100);
+    
+    // Slider 2: Ritmo Rápido Fase 1 (110-500 -> 1.1-5.0)
+    const burstSliderValue = parseInt(document.getElementById('setting_coreBurstSpawnMultiplier_slider').value);
+    gameConfig.coreBurstSpawnMultiplier = burstSliderValue / 100;
 }
 
 
 // --- v1.3: MODIFICADO ---
-// Presets de dificultad actualizados
 window.applyPreset = function(preset) {
     let presetSettings = {};
     switch(preset) {
@@ -153,15 +152,15 @@ window.applyPreset = function(preset) {
                 mapSize: 60,
                 roomCount: 5,
                 corridorWidth: 3,
-                initialZombies: 3,
-                waveMultiplier: 1.3, // 30%
+                initialZombies: 8,      // Fase 1: 8 zombies
+                waveMultiplier: 1.3,    // Fase 1: +30% por oleada
                 coreBaseHealth: 300,
-                coreBaseSpawnRate: 6000
+                coreBaseSpawnRate: 6000,  // Fase 2: 6 seg
+                coreBurstSpawnMultiplier: 2.0 // Fase 1: x2 (3 seg)
             };
             break;
         case 'normal':
             presetSettings = {...DEFAULT_CONFIG};
-            // Borrar controlType para que no resetee el del usuario
             delete presetSettings.controlType; 
             break;
         case 'hard':
@@ -178,14 +177,14 @@ window.applyPreset = function(preset) {
                 mapSize: 80,
                 roomCount: 8,
                 corridorWidth: 2,
-                initialZombies: 8,
-                waveMultiplier: 1.8, // 80%
+                initialZombies: 15,     // Fase 1: 15 zombies
+                waveMultiplier: 1.8,    // Fase 1: +80% por oleada
                 coreBaseHealth: 1000,
-                coreBaseSpawnRate: 3500
+                coreBaseSpawnRate: 3500,  // Fase 2: 3.5 seg
+                coreBurstSpawnMultiplier: 4.0 // Fase 1: x4 (~0.8 seg)
             };
             break;
     }
-    // Fusionar preset con config existente (para no perder controlType)
     gameConfig = {...gameConfig, ...presetSettings};
     applyConfigToUI();
 };
@@ -201,7 +200,16 @@ function getConfigSummary() {
 }
 
 
-// --- CONFIGURACIÓN DE JOYSTICK TÁCTIL ---
+// --- (El resto del archivo 'game.js' no necesita cambios para este paso) ---
+// ... (Lógica de Joysticks, Controles, Interpolación, etc.) ...
+// --- (Añadimos los nuevos listeners al final) ---
+
+// --- [CÓDIGO INTERMEDIO DE game.js OMITIDO POR BREVEDAD] ---
+// ... (Todo desde 'const JOYSTICK_RADIUS' hasta 'updateUI();') ...
+// ... (Este código es idéntico al de la v1.2 / Paso 2) ...
+
+// [INICIO DEL CÓDIGO OMITIDO]
+
 const JOYSTICK_RADIUS = 70;
 const KNOB_RADIUS = 30;
 
@@ -213,10 +221,6 @@ const touchState = {
     aim: { active: false, id: null, centerX: 0, centerY: 0, currentX: 0, currentY: 0 }
 };
 
-
-/**
- * Determina qué método de control usar basado en la config
- */
 function updateControlMethod() {
     let method = gameConfig.controlType;
     if (method === 'auto') {
@@ -226,8 +230,6 @@ function updateControlMethod() {
     console.log(`[CONTROLES] Método de control activo: ${method}`);
 }
 
-
-// Estado del juego en el cliente
 const clientState = {
     currentState: 'menu',
     me: { id: null, name: 'Jugador', isHost: false },
@@ -256,22 +258,18 @@ const clientState = {
     }
 };
 
-
 let lastRenderTime = 0;
 let animationFrameId = null;
-
 
 function lerp(start, end, amount) {
     return start + (end - start) * amount;
 }
-
 
 function sendInputToServer() {
     const moveLength = Math.sqrt(clientState.input.moveX ** 2 + clientState.input.moveY ** 2);
     let n_moveX = clientState.input.moveX;
     let n_moveY = clientState.input.moveY;
     if (moveLength > 1) { n_moveX /= moveLength; n_moveY /= moveLength; }
-
 
     socket.emit('playerInput', {
         moveX: n_moveX,
@@ -282,14 +280,11 @@ function sendInputToServer() {
     });
 }
 
-
-// --- MOVIMIENTO Y PUNTERÍA (TECLADO/RATÓN) ---
 const moveKeys = {
     'w': { dy: -1 }, 's': { dy: 1 },
     'a': { dx: -1 }, 'd': { dx: 1 },
 };
 const keysPressed = new Set();
-
 
 document.addEventListener('keydown', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; 
@@ -301,7 +296,6 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-
 document.addEventListener('keyup', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; 
     const key = e.key.toLowerCase();
@@ -310,7 +304,6 @@ document.addEventListener('keyup', (e) => {
         updateMoveInput();
     }
 });
-
 
 function updateMoveInput() {
     if (touchState.currentControlMethod !== 'keyboard') { 
@@ -328,38 +321,28 @@ function updateMoveInput() {
     clientState.input.moveY = moveY;
 }
 
-
-/**
- * --- ¡FUNCIÓN CORREGIDA! (v1.1) ---
- */
 function calculateAimVector(e) {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return;
-
 
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
     if (!me || clientState.cameraX === undefined || clientState.cameraY === undefined) {
         return;
     }
 
-
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left; 
     const mouseY = e.clientY - rect.top;
 
-
     const playerScreenX = me.x - clientState.cameraX;
     const playerScreenY = me.y - clientState.cameraY;
 
-
     let shootX = mouseX - playerScreenX;
     let shootY = mouseY - playerScreenY;
-
 
     const length = Math.sqrt(shootX ** 2 + shootY ** 2);
     if (length > 0.1) { 
         clientState.input.shootX = shootX / length;
         clientState.input.shootY = shootY / length;
-
 
         if (me) {
             me.shootX = clientState.input.shootX;
@@ -368,9 +351,7 @@ function calculateAimVector(e) {
     }
 }
 
-
 canvas.addEventListener('mousemove', calculateAimVector);
-
 
 canvas.addEventListener('mousedown', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return;
@@ -379,7 +360,6 @@ canvas.addEventListener('mousedown', (e) => {
     }
 });
 
-
 canvas.addEventListener('mouseup', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return;
     if (e.button === 0) {
@@ -387,18 +367,14 @@ canvas.addEventListener('mouseup', (e) => {
     }
 });
 
-
-// --- LÓGICA TÁCTIL (JOYSTICKS) ---
 canvas.addEventListener('touchstart', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return;
     e.preventDefault();
-
 
     Array.from(e.changedTouches).forEach(touch => {
         const screenX = touch.clientX;
         const screenY = touch.clientY;
         const isLeftHalf = screenX < canvas.width * 0.5;
-
 
         if (isLeftHalf && !touchState.move.active) {
             const move = touchState.move;
@@ -421,16 +397,13 @@ canvas.addEventListener('touchstart', (e) => {
     });
 }, { passive: false });
 
-
 canvas.addEventListener('touchmove', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return;
     e.preventDefault();
 
-
     Array.from(e.changedTouches).forEach(touch => {
         const screenX = touch.clientX;
         const screenY = touch.clientY;
-
 
         if (touchState.move.active && touch.identifier === touchState.move.id) {
             const move = touchState.move;
@@ -438,12 +411,10 @@ canvas.addEventListener('touchmove', (e) => {
             let dy = screenY - move.centerY;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-
             if (distance > JOYSTICK_RADIUS) {
                 dx *= JOYSTICK_RADIUS / distance;
                 dy *= JOYSTICK_RADIUS / distance;
             }
-
 
             move.currentX = move.centerX + dx;
             move.currentY = move.centerY + dy;
@@ -456,21 +427,17 @@ canvas.addEventListener('touchmove', (e) => {
             let dy = screenY - aim.centerY;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-
             if (distance > JOYSTICK_RADIUS) {
                 dx *= JOYSTICK_RADIUS / distance;
                 dy *= JOYSTICK_RADIUS / distance;
             }
 
-
             aim.currentX = aim.centerX + dx;
             aim.currentY = aim.centerY + dy;
-
 
             if (distance > KNOB_RADIUS / 2) { 
                 clientState.input.shootX = dx / distance;
                 clientState.input.shootY = dy / distance;
-
 
                 const me = clientState.interpolatedEntities.players.get(clientState.me.id);
                 if (me) {
@@ -482,11 +449,9 @@ canvas.addEventListener('touchmove', (e) => {
     });
 }, { passive: false });
 
-
 canvas.addEventListener('touchend', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return;
     e.preventDefault();
-
 
     Array.from(e.changedTouches).forEach(touch => {
         if (touchState.move.active && touch.identifier === touchState.move.id) {
@@ -503,16 +468,12 @@ canvas.addEventListener('touchend', (e) => {
     });
 }, { passive: false });
 
-
-// --- RENDERIZADO ---
 function gameLoopRender(timestamp) {
     if (clientState.currentState === 'playing') {
         const serverSnapshotTime = 1000 / SERVER_TICK_RATE;
         const timeSinceLastSnapshot = timestamp - lastRenderTime;
         const interpolationFactor = Math.min(1, timeSinceLastSnapshot / serverSnapshotTime);
 
-
-        // v1.3: Actualizar el núcleo (no interpola)
         updateCore(); 
         interpolateEntities(interpolationFactor);
         
@@ -520,23 +481,17 @@ function gameLoopRender(timestamp) {
         sendInputToServer();
     }
 
-
     lastRenderTime = timestamp;
     if (animationFrameId) {
         animationFrameId = requestAnimationFrame(gameLoopRender);
     }
 }
 
-
-/**
- * v1.3: Nueva función para actualizar el estado del Núcleo
- */
 function updateCore() {
     const coreData = clientState.serverSnapshot.zombieCore;
     
     if (coreData) {
         if (!clientState.zombieCoreEntity) {
-            // Crear la entidad visual del núcleo
             clientState.zombieCoreEntity = new ZombieCore(
                 coreData.id,
                 coreData.x,
@@ -546,7 +501,6 @@ function updateCore() {
                 coreData.maxHealth
             );
         } else {
-            // Actualizar la entidad existente (no interpola, solo actualiza)
             const core = clientState.zombieCoreEntity;
             core.x = coreData.x;
             core.y = coreData.y;
@@ -555,23 +509,19 @@ function updateCore() {
             core.size = coreData.size;
         }
     } else {
-        // No hay datos del núcleo, asegurarse que no exista
         clientState.zombieCoreEntity = null;
     }
 }
-
 
 function interpolateEntities(factor) {
     const { serverSnapshot, interpolatedEntities } = clientState;
     const serverPlayerIds = new Set();
     const serverZombieIds = new Set();
 
-
     serverSnapshot.players.forEach(p_server => {
         serverPlayerIds.add(p_server.id);
         let p_client = interpolatedEntities.players.get(p_server.id);
         const isMe = p_server.id === clientState.me.id;
-
 
         if (!p_client) {
             p_client = new Player(p_server.id, p_server.x, p_server.y, isMe, p_server.name);
@@ -580,7 +530,6 @@ function interpolateEntities(factor) {
             interpolatedEntities.players.set(p_server.id, p_client);
         }
 
-
         p_client.prevX = p_client.x;
         p_client.prevY = p_client.y;
         p_client.targetX = p_server.x;
@@ -588,28 +537,23 @@ function interpolateEntities(factor) {
         p_client.health = p_server.health;
         p_client.kills = p_server.kills;
 
-
         if (!isMe || touchState.currentControlMethod === 'keyboard') {
             p_client.shootX = p_server.shootX;
             p_client.shootY = p_server.shootY;
         }
 
-
         p_client.x = lerp(p_client.prevX, p_client.targetX, factor);
         p_client.y = lerp(p_client.prevY, p_client.targetY, factor);
     });
-
 
     serverSnapshot.zombies.forEach(z_server => {
         serverZombieIds.add(z_server.id);
         let z_client = interpolatedEntities.zombies.get(z_server.id);
 
-
         if (!z_client) {
             z_client = new Zombie(z_server.id, z_server.x, z_server.y, z_server.maxHealth);
             interpolatedEntities.zombies.set(z_server.id, z_client);
         }
-
 
         z_client.prevX = z_client.x;
         z_client.prevY = z_client.y;
@@ -618,22 +562,18 @@ function interpolateEntities(factor) {
         z_client.health = z_server.health;
         z_client.maxHealth = z_server.maxHealth;
 
-
         z_client.x = lerp(z_client.prevX, z_client.targetX, factor);
         z_client.y = lerp(z_client.prevY, z_client.targetY, factor);
     });
-
 
     interpolatedEntities.players.forEach((_, id) => {
         if (!serverPlayerIds.has(id)) { interpolatedEntities.players.delete(id); }
     });
 
-
     interpolatedEntities.zombies.forEach((_, id) => {
         if (!serverZombieIds.has(id)) { interpolatedEntities.zombies.delete(id); }
     });
 }
-
 
 function drawGame(deltaTime) {
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
@@ -644,24 +584,19 @@ function drawGame(deltaTime) {
         return;
     }
 
-
     const viewportW = canvas.width / SCALE; 
     const viewportH = canvas.height / SCALE;
 
-
     let cameraX = me.x - viewportW / 2;
     let cameraY = me.y - viewportH / 2;
-
 
     if (clientState.mapRenderer) {
         const mapSize = clientState.mapRenderer.mapWorldSize;
         cameraX = Math.max(0, Math.min(cameraX, mapSize - viewportW));
         cameraY = Math.max(0, Math.min(cameraY, mapSize - viewportH));
 
-
         if (viewportW > mapSize) cameraX = -(viewportW - mapSize) / 2; 
         if (viewportH > mapSize) cameraY = -(viewportH - mapSize) / 2;
-
 
         clientState.cameraX = cameraX;
         clientState.cameraY = cameraY;
@@ -670,55 +605,42 @@ function drawGame(deltaTime) {
         clientState.cameraY = cameraY;
     }
 
-
     ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); 
     ctx.fillStyle = '#222';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-
     ctx.save();
     ctx.translate(-clientState.cameraX, -clientState.cameraY); 
-
 
     if (clientState.mapRenderer) {
         clientState.mapRenderer.draw(ctx, clientState.cameraX, clientState.cameraY);
     }
 
-
-    // v1.3: Dibujar el Núcleo (si existe)
     if (clientState.zombieCoreEntity) {
         clientState.zombieCoreEntity.draw(ctx);
     }
-
 
     clientState.serverSnapshot.bullets.forEach(b => {
         const bullet = new Bullet(b.id, b.x, b.y);
         bullet.draw(ctx);
     });
 
-
     clientState.interpolatedEntities.zombies.forEach(z => {
         z.draw(ctx);
     });
-
 
     clientState.interpolatedEntities.players.forEach(p => {
         p.draw(ctx);
     });
 
-
     ctx.restore();
 
-
-    // Dibuja el HUD (modificado en v1.2)
-    drawHUD(me); // (v1.3: Este HUD necesita ser actualizado)
-
+    drawHUD(me);
 
     if (touchState.currentControlMethod === 'touch') {
         drawJoysticks();
     }
 }
-
 
 function drawJoysticks() {
     if (touchState.move.active) {
@@ -728,13 +650,11 @@ function drawJoysticks() {
         ctx.arc(move.centerX, move.centerY, JOYSTICK_RADIUS, 0, Math.PI * 2);
         ctx.fill();
 
-
         ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.beginPath();
         ctx.arc(move.currentX, move.currentY, KNOB_RADIUS, 0, Math.PI * 2);
         ctx.fill();
     }
-
 
     if (touchState.aim.active) {
         const aim = touchState.aim;
@@ -743,7 +663,6 @@ function drawJoysticks() {
         ctx.arc(aim.centerX, aim.centerY, JOYSTICK_RADIUS, 0, Math.PI * 2);
         ctx.fill();
 
-
         ctx.fillStyle = 'rgba(255, 0, 0, 0.6)';
         ctx.beginPath();
         ctx.arc(aim.currentX, aim.currentY, KNOB_RADIUS, 0, Math.PI * 2);
@@ -751,20 +670,11 @@ function drawJoysticks() {
     }
 }
 
-
-// v1.2: CONSTANTE DE MINIMAPA MOVIDA
 const MINIMAP_SIZE = 150; 
 
-
-/**
- * Dibuja el HUD (Puntuación, Vida) y el Minimapa.
- * --- v1.3: ¡NECESITA ACTUALIZACIÓN! ---
- * (Por ahora, es el layout v1.2. Lo actualizaremos en el Paso 3)
- */
 function drawHUD(player) {
     const { serverSnapshot } = clientState;
     
-    // --- LÓGICA DE LAYOUT v1.2 ---
     const isMobileLayout = canvas.width < 700;
     const barHeight = isMobileLayout ? 60 : 40; 
     const hudWidth = canvas.width - MINIMAP_SIZE;
@@ -773,24 +683,17 @@ function drawHUD(player) {
     const line1Y = isMobileLayout ? 22 : 25;
     const line2Y = 45; 
 
-
-    // 1. Dibujar el fondo de la barra de HUD (izquierda)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(0, 0, hudWidth, barHeight);
-
 
     ctx.fillStyle = 'white';
     ctx.font = `bold ${baseFontSize}px Arial`;
 
-
-    // 2. Bloque 1: Info del Jugador (Vida/Kills)
     ctx.textAlign = 'left';
     const health = player && player.health > 0 ? player.health : 0;
     const kills = player ? player.kills : 0;
     ctx.fillText(`Vida: ${health} | Kills: ${kills}`, padding, line1Y);
 
-
-    // 3. Bloque 2: Info de Partida (Puntuación/Oleada)
     const scoreText = `Puntuación: ${serverSnapshot.score} | Oleada: ${serverSnapshot.wave}`;
     
     if (isMobileLayout) {
@@ -801,42 +704,29 @@ function drawHUD(player) {
         ctx.fillText(scoreText, hudWidth / 2, line1Y);
     }
 
-
-    // 4. Bloque 3: Nombre del Jugador
     ctx.textAlign = 'right';
     const myInfo = clientState.playersInLobby?.find(p => p.id === clientState.me.id);
     const myName = myInfo ? myInfo.name : 'Desconocido';
 
-
     ctx.fillStyle = player?.health > 0 ? 'cyan' : '#F44336';
     ctx.fillText(`${myName}`, hudWidth - padding, line1Y);
 
-
-    // 5. Dibujar el minimapa
     drawMinimap(ctx, player);
 }
 
-
-/**
- * Crea el canvas de fondo para el minimapa (solo se llama una vez)
- */
 function createMinimapBackground() {
     if (!clientState.mapRenderer) return;
 
-
     const mapData = clientState.mapRenderer.map;
     const gridSize = mapData.length;
-
 
     const mapCanvas = document.createElement('canvas');
     mapCanvas.width = gridSize;
     mapCanvas.height = gridSize;
     const mapCtx = mapCanvas.getContext('2d');
 
-
     mapCtx.fillStyle = '#222';
     mapCtx.fillRect(0, 0, gridSize, gridSize);
-
 
     mapCtx.fillStyle = '#555';
     for (let y = 0; y < gridSize; y++) {
@@ -847,41 +737,27 @@ function createMinimapBackground() {
         }
     }
 
-
     clientState.minimapCanvas = mapCanvas;
 }
 
-
-/**
- * Dibuja el minimapa en la esquina superior derecha.
- * --- v1.2: MODIFICADO ---
- */
 function drawMinimap(ctx, me) {
     if (!clientState.mapRenderer || !clientState.minimapCanvas || !me) {
         return;
     }
 
-
     const minimapX = canvas.width - MINIMAP_SIZE;
     const minimapY = 0; 
-
 
     const mapWorldSize = clientState.mapRenderer.mapWorldSize;
     const ratio = MINIMAP_SIZE / mapWorldSize;
 
-
-    // 1. Guardar contexto y crear un área de recorte (clipping)
     ctx.save();
     ctx.beginPath();
     ctx.rect(minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
     ctx.clip(); 
 
-
-    // 2. Dibujar el fondo del minimapa
     ctx.drawImage(clientState.minimapCanvas, minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
 
-
-    // 3. Dibujar Zombies
     ctx.fillStyle = '#F44336';
     clientState.interpolatedEntities.zombies.forEach(zombie => {
         const dotX = minimapX + (zombie.x * ratio);
@@ -889,8 +765,6 @@ function drawMinimap(ctx, me) {
         ctx.fillRect(dotX - 1, dotY - 1, 2, 2);
     });
 
-
-    // 4. Dibujar otros jugadores
     ctx.fillStyle = '#477be3';
     clientState.interpolatedEntities.players.forEach(player => {
         if (player.id === me.id) return;
@@ -899,46 +773,34 @@ function drawMinimap(ctx, me) {
         ctx.fillRect(dotX - 1, dotY - 1, 3, 3);
     });
 
-
-    // v1.3: Dibujar el Núcleo (si existe)
     if (clientState.zombieCoreEntity) {
         ctx.fillStyle = '#FF00FF'; // Magenta
         const core = clientState.zombieCoreEntity;
         const dotX = minimapX + (core.x * ratio);
         const dotY = minimapY + (core.y * ratio);
-        ctx.fillRect(dotX - 2, dotY - 2, 5, 5); // Un punto grande
+        ctx.fillRect(dotX - 2, dotY - 2, 5, 5);
     }
 
-
-    // 5. Dibujar al jugador local
     ctx.fillStyle = '#2596be';
     const meDotX = minimapX + (me.x * ratio);
     const meDotY = minimapY + (me.y * ratio);
     ctx.fillRect(meDotX - 2, meDotY - 2, 4, 4);
 
-
-    // 6. Restaurar el contexto
     ctx.restore();
 
-
-    // 7. Dibujar el borde
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.lineWidth = 1;
     ctx.strokeRect(minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
 }
 
-
-// --- INTERFAZ Y LOBBY ---
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); 
 }
 
-
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas(); 
-
 
 function updateUI() {
     const menuScreen = document.getElementById('menuScreen');
@@ -947,14 +809,12 @@ function updateUI() {
     const gameOverScreen = document.getElementById('gameOverScreen');
     const roomListScreen = document.getElementById('roomListScreen');
 
-
     menuScreen.style.display = 'none';
     settingsScreen.style.display = 'none';
     lobbyScreen.style.display = 'none';
     gameOverScreen.style.display = 'none';
     roomListScreen.style.display = 'none';
     canvas.style.display = 'none';
-
 
     if (clientState.currentState === 'menu') {
         menuScreen.style.display = 'flex';
@@ -972,15 +832,12 @@ function updateUI() {
     }
 }
 
-
 function updateLobbyDisplay() {
     const playerList = document.getElementById('lobbyPlayerList');
     const startButton = document.getElementById('startButton');
     const hostConfigInfo = document.getElementById('hostConfigInfo');
 
-
     if (clientState.currentState !== 'lobby') return;
-
 
     playerList.innerHTML = '';
     clientState.playersInLobby.forEach(p => {
@@ -989,7 +846,6 @@ function updateLobbyDisplay() {
         li.style.color = p.id === clientState.me.id ? 'cyan' : 'white';
         playerList.appendChild(li);
     });
-
 
     if (clientState.me.isHost) { 
         startButton.style.display = 'block';
@@ -1001,32 +857,23 @@ function updateLobbyDisplay() {
         hostConfigInfo.style.display = 'none';
     }
 
-
     document.getElementById('lobbyRoomId').textContent = `Sala ID: ${clientState.roomId}`;
 }
 
-
-/**
- * (v1.1) Rellena la lista de salas activas
- */
 function populateRoomList(games) {
     const container = document.getElementById('roomListContainer');
     if (!container) return;
 
-
     container.innerHTML = '';
-
 
     if (games.length === 0) {
         container.innerHTML = '<p style="padding: 20px; color: #aaa; text-align: center;">No hay salas activas. ¡Crea una!</p>';
         return;
     }
 
-
     games.forEach(game => {
         const roomItem = document.createElement('div');
         roomItem.className = 'room-item';
-
 
         const roomInfo = document.createElement('div');
         roomInfo.className = 'room-info';
@@ -1034,7 +881,6 @@ function populateRoomList(games) {
             <strong>Sala: ${game.id}</strong>
             <span>Host: ${game.hostName} (${game.playerCount} jugador${game.playerCount > 1 ? 'es' : ''})</span>
         `;
-
 
         const joinButton = document.createElement('button');
         joinButton.textContent = 'Unirse';
@@ -1045,20 +891,16 @@ function populateRoomList(games) {
             socket.emit('joinGame', game.id, playerName);
         };
 
-
         roomItem.appendChild(roomInfo);
         roomItem.appendChild(joinButton);
         container.appendChild(roomItem);
     });
 }
 
-
-// --- SOCKET.IO LISTENERS ---
 socket.on('connect', () => {
     clientState.me.id = socket.id;
     console.log(`[CLIENTE] Conectado: ${socket.id}`);
 });
-
 
 socket.on('gameCreated', (game) => {
     clientState.currentState = 'lobby';
@@ -1068,7 +910,6 @@ socket.on('gameCreated', (game) => {
     updateUI();
 });
 
-
 socket.on('joinSuccess', (game) => {
     clientState.currentState = 'lobby';
     clientState.roomId = game.id;
@@ -1076,7 +917,6 @@ socket.on('joinSuccess', (game) => {
     clientState.playersInLobby = game.players;
     updateUI();
 });
-
 
 socket.on('joinFailed', (message) => {
     const input = document.getElementById('roomIdInput');
@@ -1095,11 +935,9 @@ socket.on('joinFailed', (message) => {
     updateUI();
 });
 
-
 socket.on('lobbyUpdate', (game) => {
     clientState.playersInLobby = game.players;
     clientState.me.isHost = game.players.find(p => p.id === clientState.me.id)?.isHost || false;
-
 
     if (clientState.currentState === 'gameOver') {
         clientState.currentState = 'lobby';
@@ -1110,36 +948,28 @@ socket.on('lobbyUpdate', (game) => {
     }
 });
 
-
 socket.on('gameStarted', (data) => {
     clientState.currentState = 'playing';
     clientState.mapRenderer = new MapRenderer(data.mapData, data.cellSize);
 
-
     createMinimapBackground(); 
-
 
     clientState.interpolatedEntities.players.clear();
     clientState.interpolatedEntities.zombies.clear();
-    clientState.zombieCoreEntity = null; // v1.3: Limpiar núcleo
-
+    clientState.zombieCoreEntity = null;
 
     updateUI();
     resizeCanvas(); 
-
 
     if (!animationFrameId) {
         animationFrameId = requestAnimationFrame(gameLoopRender);
     }
 });
 
-
 socket.on('gameState', (snapshot) => {
     clientState.serverSnapshot = snapshot;
 });
 
-
-// --- v1.2: LÓGICA DE GAME OVER MODIFICADA ---
 socket.on('gameOver', (data) => {
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
@@ -1152,7 +982,6 @@ socket.on('gameOver', (data) => {
     updateUI();
 });
 
-
 socket.on('gameEnded', () => {
     console.warn('La partida terminó.');
     
@@ -1161,31 +990,25 @@ socket.on('gameEnded', () => {
         animationFrameId = null;
     }
 
-
     clientState.currentState = 'menu';
     clientState.roomId = null;
     clientState.me.isHost = false;
     updateUI();
 });
 
-
 socket.on('playerDisconnected', (playerId) => {
     console.log(`Jugador desconectado: ${playerId}`);
 });
-
 
 socket.on('gameList', (games) => {
     populateRoomList(games);
 });
 
-
-// --- LISTENERS DE BOTONES ---
 document.getElementById('createGameButton').addEventListener('click', () => {
     const playerName = document.getElementById('playerNameInput').value || 'Anónimo';
     clientState.me.name = playerName;
     socket.emit('createGame', { name: playerName, config: gameConfig });
 });
-
 
 document.getElementById('browseGamesButton').addEventListener('click', () => {
     clientState.currentState = 'roomList';
@@ -1197,7 +1020,6 @@ document.getElementById('browseGamesButton').addEventListener('click', () => {
     socket.emit('requestGameList');
 });
 
-
 document.getElementById('refreshRoomListButton').addEventListener('click', () => {
     const container = document.getElementById('roomListContainer');
     if (container) {
@@ -1206,12 +1028,10 @@ document.getElementById('refreshRoomListButton').addEventListener('click', () =>
     socket.emit('requestGameList');
 });
 
-
 document.getElementById('backToMenuFromRoomListButton').addEventListener('click', () => {
     clientState.currentState = 'menu';
     updateUI();
 });
-
 
 document.getElementById('joinGameButton').addEventListener('click', () => {
     const roomId = document.getElementById('roomIdInput').value.toUpperCase();
@@ -1230,12 +1050,10 @@ document.getElementById('joinGameButton').addEventListener('click', () => {
     socket.emit('joinGame', roomId, playerName);
 });
 
-
 document.getElementById('settingsButton').addEventListener('click', () => {
     clientState.currentState = 'settings';
     updateUI();
 });
-
 
 document.getElementById('saveSettingsButton').addEventListener('click', () => {
     readConfigFromUI();
@@ -1245,25 +1063,21 @@ document.getElementById('saveSettingsButton').addEventListener('click', () => {
     updateUI();
 });
 
-
 document.getElementById('resetSettingsButton').addEventListener('click', () => {
     const currentControl = gameConfig.controlType;
     gameConfig = {...DEFAULT_CONFIG};
     gameConfig.controlType = currentControl;
-
 
     applyConfigToUI();
     saveConfig();
     updateControlMethod();
 });
 
-
 document.getElementById('startButton').addEventListener('click', () => {
     if (clientState.me.isHost && clientState.roomId) {
         socket.emit('startGame', clientState.roomId);
     }
 });
-
 
 document.getElementById('backToMenuButton').addEventListener('click', () => {
     if (clientState.currentState === 'lobby' && clientState.roomId) {
@@ -1280,8 +1094,6 @@ document.getElementById('backToMenuButton').addEventListener('click', () => {
     updateUI();
 });
 
-
-// --- v1.2: LISTENERS POST-PARTIDA ---
 document.getElementById('continueGameButton').addEventListener('click', () => {
     if (clientState.currentState === 'gameOver' && clientState.roomId) {
         socket.emit('returnToLobby', clientState.roomId);
@@ -1289,7 +1101,6 @@ document.getElementById('continueGameButton').addEventListener('click', () => {
         updateUI();
     }
 });
-
 
 document.getElementById('exitToMenuButton').addEventListener('click', () => {
     if (clientState.roomId) {
@@ -1307,12 +1118,18 @@ document.getElementById('exitToMenuButton').addEventListener('click', () => {
     updateUI();
 });
 
+// [FIN DEL CÓDIGO OMITIDO]
 
-// --- v1.2: AÑADIDO ---
+// --- v1.3: AÑADIDOS LISTENERS PARA SLIDERS ---
 document.getElementById('setting_waveMultiplier_slider').addEventListener('input', (e) => {
     document.getElementById('waveMultiplierValue').textContent = `+${e.target.value}%`;
 });
-// --- FIN AÑADIDO v1.2 ---
+
+document.getElementById('setting_coreBurstSpawnMultiplier_slider').addEventListener('input', (e) => {
+    const value = parseInt(e.target.value) / 100;
+    document.getElementById('coreBurstSpawnMultiplierValue').textContent = `x${value.toFixed(1)}`;
+});
+// --- FIN AÑADIDO v1.3 ---
 
 
 // --- INICIO ---

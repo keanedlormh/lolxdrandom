@@ -62,7 +62,7 @@ class Pathfinder {
                 }
             }
         }
-        
+
         // Si no hay jugadores válidos (o están todos en muros), devolver mapa vacío
         if (queue.length === 0) {
             return costMap;

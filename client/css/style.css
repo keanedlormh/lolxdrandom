@@ -372,6 +372,7 @@ input:-webkit-autofill:active  {
     align-items: center;
 }
 
+/* v1.5: Ajuste para sliders */
 .setting-item.slider-group {
      margin-bottom: 0px;
 }
@@ -390,7 +391,7 @@ input[type="range"].slider-control {
     letter-spacing: 1px;
 }
 
-/* Slider de Oleadas (v1.2) */
+/* Slider (v1.2) */
 input[type="range"] {
     -webkit-appearance: none;
     width: 100%;
@@ -423,11 +424,13 @@ input[type="range"]::-moz-range-thumb {
     box-shadow: 0 0 10px var(--color-primario-sombra);
 }
 
+/* v1.5: Estilo genérico para todos los valores de slider */
 .slider-value {
     color: var(--color-acento-principal); 
     font-weight: bold; 
-    min-width: 55px;
+    min-width: 65px; /* Aumentado para "10000 ms" */
     text-align: right;
+    font-size: 1.0em;
 }
 
 .setting-item input[type="number"],
@@ -473,6 +476,16 @@ input[type="range"]::-moz-range-thumb {
     border-bottom: 1px solid rgba(255, 117, 24, 0.2);
     cursor: pointer;
     transition: all 0.3s;
+}
+.room-item.playing { /* v1.4 Estilo para partidas en curso */
+    background: linear-gradient(135deg, rgba(10, 10, 20, 0.2) 0%, rgba(20, 10, 30, 0.2) 100%);
+}
+.room-item.playing .room-info strong {
+    color: var(--color-texto);
+    opacity: 0.6;
+}
+.room-item.playing .room-info span {
+    color: #888;
 }
 
 .room-item:hover {
@@ -523,6 +536,14 @@ input[type="range"]::-moz-range-thumb {
      box-shadow: 0 0 30px var(--color-primario-sombra), 0 8px 0 var(--color-primario-sombra-oscura);
      transform: translateY(-3px);
 }
+.room-join-button.join-playing { /* v1.4 Estilo para unirse a partida en curso */
+    background: linear-gradient(135deg, var(--color-secundario) 0%, var(--color-secundario-hover) 100%);
+    color: var(--color-secundario-texto);
+    box-shadow: 0 0 15px var(--color-secundario-sombra), 0 6px 0 var(--color-secundario-sombra-oscura);
+}
+.room-join-button.join-playing:hover:not(:disabled) {
+    box-shadow: 0 0 25px var(--color-secundario-sombra), 0 8px 0 var(--color-secundario-sombra-oscura);
+}
 
 
 .room-list-actions {
@@ -554,12 +575,13 @@ input[type="range"]::-moz-range-thumb {
     .btn, input[type="text"], input[type="number"], select { padding: 13px; font-size: 1.0em; }
     .preset-buttons { grid-template-columns: 1fr; }
     .preset-buttons .btn { font-size: 1.0em; }
+    
     .setting-item { flex-direction: column; align-items: flex-start; }
     .setting-item label { margin-bottom: 8px; }
     .setting-item input[type="number"], .setting-item select { width: 100%; }
     #setting_controlType { width: 100%; }
     
-    .slider-value { margin-left: 0; margin-top: 8px; text-align: left !important; }
+    .slider-value { margin-left: 0; margin-top: 8px; text-align: left !important; min-width: 0; }
     input[type="range"].slider-control { margin-top: 15px; }
     
     .room-item { flex-direction: column; align-items: flex-start; gap: 12px; }
@@ -577,8 +599,8 @@ input[type="range"]::-moz-range-thumb {
     input[type="text"], input[type="number"], select { padding: 10px; margin: 6px 0; font-size: 0.95em; }
     .btn { padding: 10px; margin: 6px 0; font-size: 0.95em; }
     .menu-container h3 { font-size: 1.0em; }
-    /* v1.5: Sub-cabecera más pequeña en apaisado */
     .settings-group h4 { font-size: 0.9em; margin-bottom: 10px; }
     .setting-item label { font-size: 0.9em; }
     .preset-buttons .btn { font-size: 0.8em; padding: 10px; }
+    .slider-value { font-size: 0.95em; }
 }

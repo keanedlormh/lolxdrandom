@@ -1,20 +1,19 @@
 /**
- * client/js/game.js - ACTUALIZADO v1.5 (Sliders)
+ * client/js/game.js - CORREGIDO v1.5
  *
- * Esta versión incluye:
- * 1. (v1.4) Lógica de HUD, espectador y reaparición.
- * 2. (v1.5) applyConfigToUI() actualizada para escribir en los
- * text spans de los sliders (ej: "100 ms").
- * 3. (v1.5) readConfigFromUI() actualizada para leer de los
- * sliders (ya funciona por ID, pero se verifica parseo).
- * 4. (v1.5) NUEVOS Listeners de UI al final del archivo
- * para actualizar los text spans en tiempo real.
+ * ¡FALLO CRÍTICO CORREGIDO!
+ * - La función `updateUI` estaba intentando mostrar/ocultar
+ * `canvas` en lugar de su contenedor `gameScreen`.
+ * - Añadida la variable `gameScreen` al inicio.
+ * - `updateUI` ahora oculta `gameScreen` por defecto y lo
+ * muestra cuando `currentState === 'playing'`.
  */
 
 
 const socket = io();
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+const gameScreen = document.getElementById('gameScreen'); // <-- AÑADIDO
 
 
 const SCALE = 1.0; 
@@ -809,17 +808,20 @@ const MINIMAP_SIZE = 150; // Tamaño del minimapa en píxeles
 function drawHUD(player) { // 'player' es el jugador local
     const { serverSnapshot } = clientState;
     
+    // --- NUEVA LÓGICA DE LAYOUT ---
+    
+    // 1. Definir tamaños
     const isMobileLayout = canvas.width < 700;
-    const barHeight = isMobileLayout ? 60 : 40;
-    const hudWidth = canvas.width - MINIMAP_SIZE;
+    const barHeight = isMobileLayout ? 60 : 40; // Barra más alta en móvil
+    const hudWidth = canvas.width - MINIMAP_SIZE; // Ancho dinámico para la barra
     
     const baseFontSize = isMobileLayout ? 16 : 18;
     const padding = 10;
     const line1Y = isMobileLayout ? 22 : 25;
-    const line2Y = 45;
+    const line2Y = 45; // Solo para móvil
 
 
-    // 1. Dibujar el fondo de la barra de HUD (izquierda)
+    // 2. Dibujar el fondo de la barra de HUD (izquierda)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(0, 0, hudWidth, barHeight);
 
@@ -828,7 +830,7 @@ function drawHUD(player) { // 'player' es el jugador local
     ctx.font = `bold ${baseFontSize}px Arial`;
 
 
-    // 2. Bloque 1: Info del Jugador (Vida/Kills)
+    // 3. Bloque 1: Info del Jugador (Vida/Kills)
     ctx.textAlign = 'left';
     // v1.4: Mostrar info aunque 'player' sea null (recién unido)
     const health = (player && player.health > 0) ? player.health : 0;
@@ -836,22 +838,25 @@ function drawHUD(player) { // 'player' es el jugador local
     ctx.fillText(`Vida: ${health} | Kills: ${kills}`, padding, line1Y);
 
 
-    // 3. Bloque 2: Info de Partida (Puntuación/Oleada)
+    // 4. Bloque 2: Info de Partida (Puntuación/Oleada)
     const scoreText = `Puntuación: ${serverSnapshot.score} | Oleada: ${serverSnapshot.wave}`;
     
     if (isMobileLayout) {
+        // En móvil: Poner en la segunda línea
         ctx.textAlign = 'left';
         ctx.fillText(scoreText, padding, line2Y);
     } else {
+        // En escritorio: Poner en el centro de la barra
         ctx.textAlign = 'center';
         ctx.fillText(scoreText, hudWidth / 2, line1Y);
     }
 
 
-    // 4. Bloque 3: Nombre del Jugador
+    // 5. Bloque 3: Nombre del Jugador
     ctx.textAlign = 'right';
     const myName = player ? player.name : clientState.me.name;
     ctx.fillStyle = (player && player.health > 0) ? 'cyan' : '#F44336';
+    // Alineado a la derecha del *ancho del HUD*, no del canvas
     ctx.fillText(`${myName}`, hudWidth - padding, line1Y);
 
     // v1.4: Mensaje de Espectador/Muerto
@@ -865,13 +870,15 @@ function drawHUD(player) { // 'player' es el jugador local
         const message = clientState.amIDead ? '¡ESTÁS MUERTO!' : 'ESPECTANDO...';
         ctx.fillText(message, canvas.width / 2, barHeight + 28);
         
+        // v1.4: Mostrar oleada correcta
+        const nextWave = serverSnapshot.zombieCore ? serverSnapshot.wave : serverSnapshot.wave + 1;
         ctx.fillStyle = 'white';
         ctx.font = '16px Arial';
-        ctx.fillText(`Esperando al inicio de la oleada ${serverSnapshot.wave + 1}...`, canvas.width / 2, barHeight + 55);
+        ctx.fillText(`Esperando al inicio de la oleada ${nextWave}...`, canvas.width / 2, barHeight + 55);
     }
 
 
-    // 5. Dibujar el minimapa (ahora sin argumentos)
+    // 6. Dibujar el minimapa (ahora sin argumentos)
     drawMinimap(ctx, player);
 }
 
@@ -986,6 +993,7 @@ window.addEventListener('resize', resizeCanvas);
 resizeCanvas(); 
 
 
+// --- v1.5: CORRECCIÓN ---
 function updateUI() {
     const menuScreen = document.getElementById('menuScreen');
     const settingsScreen = document.getElementById('settingsScreen');
@@ -999,7 +1007,7 @@ function updateUI() {
     lobbyScreen.style.display = 'none';
     gameOverScreen.style.display = 'none';
     roomListScreen.style.display = 'none';
-    canvas.style.display = 'none';
+    gameScreen.style.display = 'none'; // <-- CORREGIDO (era 'canvas.style.display')
 
 
     if (clientState.currentState === 'menu') {
@@ -1010,13 +1018,14 @@ function updateUI() {
         lobbyScreen.style.display = 'flex';
         updateLobbyDisplay();
     } else if (clientState.currentState === 'playing') {
-        canvas.style.display = 'block';
+        gameScreen.style.display = 'block'; // <-- CORREGIDO (era 'canvas.style.display')
     } else if (clientState.currentState === 'gameOver') {
         gameOverScreen.style.display = 'flex';
     } else if (clientState.currentState === 'roomList') {
         roomListScreen.style.display = 'flex';
     }
 }
+// --- FIN CORRECCIÓN v1.5 ---
 
 
 function updateLobbyDisplay() {
@@ -1396,7 +1405,7 @@ function setupSliderListener(sliderId, displayId, options = {}) {
     const slider = document.getElementById(sliderId);
     const display = document.getElementById(displayId);
     if (!slider || !display) {
-        console.warn(`Slider o display no encontrado: ${sliderId}, ${displayId}`);
+        // console.warn(`Slider o display no encontrado: ${sliderId}, ${displayId}`);
         return;
     }
 
@@ -1410,6 +1419,7 @@ function setupSliderListener(sliderId, displayId, options = {}) {
 }
 
 // Conectar todos los sliders a sus spans
+// Se ejecuta una vez que el DOM está cargado
 document.addEventListener('DOMContentLoaded', () => {
     // Jugador y Combate
     setupSliderListener('setting_playerHealth', 'setting_playerHealth_value');

@@ -2,8 +2,10 @@
  * server/gameLogic.js - ACTUALIZADO v1.5
  *
  * 1. (v1.5) `createBullet()`: Bala generada en el centro (x, y).
- * 2. (v1.5) `getGameStateSnapshot()`: Ahora envía `p.maxHealth`
- * junto con `p.health` a los clientes.
+ * 2. (v1.5) `getGameStateSnapshot()`: Envía `p.maxHealth`.
+ * 3. (v1.5) `ServerZombieCore` constructor: Usa
+ * `config.coreHealthMultiplier` (en lugar de 1.4) para
+ * calcular la vida máxima del núcleo.
  */
 
 const ServerMapGenerator = require('./serverMapGenerator'); 
@@ -137,6 +139,7 @@ class ServerZombie extends ServerEntity {
     }
 }
 
+// --- v1.5: Clase de Núcleo MODIFICADA ---
 class ServerZombieCore {
     constructor(id, x, y, wave, config) {
         this.id = id;
@@ -158,10 +161,13 @@ class ServerZombieCore {
         this.currentSpawnRate = this.spawnRatePhase1;
         this.spawnTimer = this.currentSpawnRate; 
 
-        this.maxHealth = Math.floor(config.coreBaseHealth * Math.pow(1.4, wave - 1));
+        // v1.5: Cálculo de vida MODIFICADO
+        // Usa el multiplicador de la config (ej: 1.15) en lugar de 1.4
+        this.maxHealth = Math.floor(config.coreBaseHealth * Math.pow(config.coreHealthMultiplier, wave - 1));
         this.health = this.maxHealth;
 
-        console.log(`[CORE OLEADA ${wave}] Fase 1: ${this.phase1ZombieAmount} zombies @ ${this.spawnRatePhase1.toFixed(0)}ms. Fase 2: Ritmo de ${this.spawnRatePhase2.toFixed(0)}ms. Vida: ${this.maxHealth}`);
+        console.log(`[CORE OLEADA ${wave}] Multiplicador Vida: ${config.coreHealthMultiplier}. Vida: ${this.maxHealth}`);
+        console.log(`[CORE OLEADA ${wave}] Fase 1: ${this.phase1ZombieAmount} zombies @ ${this.spawnRatePhase1.toFixed(0)}ms. Fase 2: Ritmo de ${this.spawnRatePhase2.toFixed(0)}ms.`);
     }
 
     update(deltaTime) {
@@ -373,7 +379,6 @@ class GameLogic {
 
         const bulletId = `bullet_${playerId}_${currentTime}`; 
         
-        // v1.5: La bala se genera en el CENTRO (x, y)
         const startX = x;
         const startY = y;
 
@@ -505,7 +510,7 @@ class GameLogic {
                 y: p.y,
                 name: p.name,
                 health: p.health,
-                maxHealth: p.maxHealth, // <-- v1.5: AÑADIDO
+                maxHealth: p.maxHealth, 
                 kills: p.kills,
                 shootX: p.input.shootX, 
                 shootY: p.input.shootY,

@@ -1,5 +1,5 @@
 /**
- * client/js/game.js - ACTUALIZADO v1.4
+ * client/js/game.js - ACTUALIZADO v1.5
  *
  * 1. (v1.3) Lógica de 2 Fases del Núcleo.
  * 2. (v1.4) `interpolateEntities`: Ahora recibe `isPending` y `isDead`
@@ -11,18 +11,17 @@
  * 4. (v1.4) `drawHUD` (MODO ESPECTADOR):
  * - Si `me` está muerto o pendiente, muestra un mensaje
  * "ESPERANDO SIGUIENTE OLEADA" o "ESPECTADOR".
+ * 5. (v1.5) `applyConfigToUI` y listeners actualizados para
+ * soportar la nueva UI de sliders.
  */
-
 
 const socket = io();
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-
 const SCALE = 1.0; 
 window.SCALE = SCALE;
 const SERVER_TICK_RATE = 30;
-
 
 // --- v1.3: Configuración por defecto actualizada ---
 const DEFAULT_CONFIG = {
@@ -46,10 +45,8 @@ const DEFAULT_CONFIG = {
     coreBurstSpawnMultiplier: 2.5
 };
 
-
 // Configuración actual del juego
 let gameConfig = {...DEFAULT_CONFIG};
-
 
 // Cargar configuración guardada del localStorage
 function loadConfig() {
@@ -66,35 +63,53 @@ function loadConfig() {
     updateControlMethod();
 }
 
-
 // Guardar configuración en localStorage
 function saveConfig() {
     localStorage.setItem('zombieGameConfig', JSON.stringify(gameConfig));
 }
 
-
-// --- v1.3: MODIFICADO ---
+// --- v1.5: MODIFICADO (Soporte para Sliders) ---
 function applyConfigToUI() {
+    // Config Local
     document.getElementById('setting_controlType').value = gameConfig.controlType;
+    
+    // Jugador y Combate
     document.getElementById('setting_playerHealth').value = gameConfig.playerHealth;
+    document.getElementById('setting_playerHealth_value').textContent = gameConfig.playerHealth;
     document.getElementById('setting_playerSpeed').value = gameConfig.playerSpeed;
+    document.getElementById('setting_playerSpeed_value').textContent = gameConfig.playerSpeed;
     document.getElementById('setting_shootCooldown').value = gameConfig.shootCooldown;
-    document.getElementById('setting_zombieHealth').value = gameConfig.zombieHealth;
-    document.getElementById('setting_zombieSpeed').value = gameConfig.zombieSpeed;
-    document.getElementById('setting_zombieAttack').value = gameConfig.zombieAttack;
-    document.getElementById('setting_zombieAttackCooldown').value = gameConfig.zombieAttackCooldown;
+    document.getElementById('setting_shootCooldown_value').textContent = `${gameConfig.shootCooldown} ms`;
     document.getElementById('setting_bulletDamage').value = gameConfig.bulletDamage;
+    document.getElementById('setting_bulletDamage_value').textContent = gameConfig.bulletDamage;
     document.getElementById('setting_bulletSpeed').value = gameConfig.bulletSpeed;
+    document.getElementById('setting_bulletSpeed_value').textContent = gameConfig.bulletSpeed;
+
+    // Opciones del Mapa
     document.getElementById('setting_mapSize').value = gameConfig.mapSize;
     document.getElementById('setting_roomCount').value = gameConfig.roomCount;
+    document.getElementById('setting_roomCount_value').textContent = `${gameConfig.roomCount} salas`;
     document.getElementById('setting_corridorWidth').value = gameConfig.corridorWidth;
-    
-    // Configuración de Oleadas
+
+    // Enemigos (Zombie)
+    document.getElementById('setting_zombieHealth').value = gameConfig.zombieHealth;
+    document.getElementById('setting_zombieHealth_value').textContent = gameConfig.zombieHealth;
+    document.getElementById('setting_zombieSpeed').value = gameConfig.zombieSpeed;
+    document.getElementById('setting_zombieSpeed_value').textContent = gameConfig.zombieSpeed;
+    document.getElementById('setting_zombieAttack').value = gameConfig.zombieAttack;
+    document.getElementById('setting_zombieAttack_value').textContent = gameConfig.zombieAttack;
+    document.getElementById('setting_zombieAttackCooldown').value = gameConfig.zombieAttackCooldown;
+    document.getElementById('setting_zombieAttackCooldown_value').textContent = `${gameConfig.zombieAttackCooldown} ms`;
+
+    // Enemigos (Oleada y Núcleo)
     document.getElementById('setting_initialZombies').value = gameConfig.initialZombies;
+    document.getElementById('setting_initialZombies_value').textContent = `${gameConfig.initialZombies} zombies`;
     document.getElementById('setting_coreBaseHealth').value = gameConfig.coreBaseHealth;
+    document.getElementById('setting_coreBaseHealth_value').textContent = gameConfig.coreBaseHealth;
     document.getElementById('setting_coreBaseSpawnRate').value = gameConfig.coreBaseSpawnRate;
+    document.getElementById('setting_coreBaseSpawnRate_value').textContent = `${gameConfig.coreBaseSpawnRate} ms`;
 
-
+    // Sliders existentes (con lógica de % y x)
     const waveSliderValue = Math.round((gameConfig.waveMultiplier - 1) * 100);
     document.getElementById('setting_waveMultiplier_slider').value = waveSliderValue;
     document.getElementById('waveMultiplierValue').textContent = `+${waveSliderValue}%`;
@@ -106,35 +121,40 @@ function applyConfigToUI() {
     document.getElementById('setting_coreBurstSpawnMultiplier').value = gameConfig.coreBurstSpawnMultiplier;
 }
 
-
-// --- v1.3: MODIFICADO ---
+// --- v1.5: MODIFICADO (Lee de Sliders) ---
 function readConfigFromUI() {
     gameConfig.controlType = document.getElementById('setting_controlType').value;
+    
+    // Jugador y Combate (parseInt/parseFloat funcionan en sliders)
     gameConfig.playerHealth = parseInt(document.getElementById('setting_playerHealth').value);
     gameConfig.playerSpeed = parseFloat(document.getElementById('setting_playerSpeed').value);
     gameConfig.shootCooldown = parseInt(document.getElementById('setting_shootCooldown').value);
+    gameConfig.bulletDamage = parseInt(document.getElementById('setting_bulletDamage').value);
+    gameConfig.bulletSpeed = parseInt(document.getElementById('setting_bulletSpeed').value);
+    
+    // Mapa
+    gameConfig.mapSize = parseInt(document.getElementById('setting_mapSize').value);
+    gameConfig.roomCount = parseInt(document.getElementById('setting_roomCount').value);
+    gameConfig.corridorWidth = parseInt(document.getElementById('setting_corridorWidth').value);
+
+    // Zombi
     gameConfig.zombieHealth = parseInt(document.getElementById('setting_zombieHealth').value);
     gameConfig.zombieSpeed = parseFloat(document.getElementById('setting_zombieSpeed').value);
     gameConfig.zombieAttack = parseInt(document.getElementById('setting_zombieAttack').value);
     gameConfig.zombieAttackCooldown = parseInt(document.getElementById('setting_zombieAttackCooldown').value);
-    gameConfig.bulletDamage = parseInt(document.getElementById('setting_bulletDamage').value);
-    gameConfig.bulletSpeed = parseInt(document.getElementById('setting_bulletSpeed').value);
-    gameConfig.mapSize = parseInt(document.getElementById('setting_mapSize').value);
-    gameConfig.roomCount = parseInt(document.getElementById('setting_roomCount').value);
-    gameConfig.corridorWidth = parseInt(document.getElementById('setting_corridorWidth').value);
-    
+
+    // Núcleo
     gameConfig.initialZombies = parseInt(document.getElementById('setting_initialZombies').value);
     gameConfig.coreBaseHealth = parseInt(document.getElementById('setting_coreBaseHealth').value);
     gameConfig.coreBaseSpawnRate = parseInt(document.getElementById('setting_coreBaseSpawnRate').value);
 
-
+    // Sliders especiales (Ocultos)
     const waveSliderValue = parseInt(document.getElementById('setting_waveMultiplier_slider').value);
     gameConfig.waveMultiplier = 1 + (waveSliderValue / 100);
-    
+
     const burstSliderValue = parseInt(document.getElementById('setting_coreBurstSpawnMultiplier_slider').value);
     gameConfig.coreBurstSpawnMultiplier = burstSliderValue / 100;
 }
-
 
 // --- v1.3: MODIFICADO ---
 window.applyPreset = function(preset) {
@@ -191,7 +211,6 @@ window.applyPreset = function(preset) {
     applyConfigToUI();
 };
 
-
 function getConfigSummary() {
     return `
         Jugador: ${gameConfig.playerHealth}HP, Vel ${gameConfig.playerSpeed} | 
@@ -200,10 +219,8 @@ function getConfigSummary() {
     `;
 }
 
-
 const JOYSTICK_RADIUS = 70;
 const KNOB_RADIUS = 30;
-
 
 const touchState = {
     isTouchDevice: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
@@ -211,7 +228,6 @@ const touchState = {
     move: { active: false, id: null, centerX: 0, centerY: 0, currentX: 0, currentY: 0 },
     aim: { active: false, id: null, centerX: 0, centerY: 0, currentX: 0, currentY: 0 }
 };
-
 
 function updateControlMethod() {
     let method = gameConfig.controlType;
@@ -221,7 +237,6 @@ function updateControlMethod() {
     touchState.currentControlMethod = method;
     console.log(`[CONTROLES] Método de control activo: ${method}`);
 }
-
 
 const clientState = {
     currentState: 'menu',
@@ -251,22 +266,18 @@ const clientState = {
     }
 };
 
-
 let lastRenderTime = 0;
 let animationFrameId = null;
-
 
 function lerp(start, end, amount) {
     return start + (end - start) * amount;
 }
-
 
 function sendInputToServer() {
     const moveLength = Math.sqrt(clientState.input.moveX ** 2 + clientState.input.moveY ** 2);
     let n_moveX = clientState.input.moveX;
     let n_moveY = clientState.input.moveY;
     if (moveLength > 1) { n_moveX /= moveLength; n_moveY /= moveLength; }
-
 
     socket.emit('playerInput', {
         moveX: n_moveX,
@@ -277,18 +288,16 @@ function sendInputToServer() {
     });
 }
 
-
 const moveKeys = {
     'w': { dy: -1 }, 's': { dy: 1 },
     'a': { dx: -1 }, 'd': { dx: 1 },
 };
 const keysPressed = new Set();
 
-
 document.addEventListener('keydown', (e) => {
     // v1.4: Permitir movimiento de cámara si está muerto (para espectador)
     // if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; 
-    
+
     // v1.4: El input de movimiento solo se envía si estás vivo
     if (clientState.currentState === 'playing' && touchState.currentControlMethod === 'keyboard') {
         const me = clientState.interpolatedEntities.players.get(clientState.me.id);
@@ -303,7 +312,6 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-
 document.addEventListener('keyup', (e) => {
     if (clientState.currentState === 'playing' && touchState.currentControlMethod === 'keyboard') {
         const key = e.key.toLowerCase();
@@ -313,7 +321,6 @@ document.addEventListener('keyup', (e) => {
         }
     }
 });
-
 
 function updateMoveInput() {
     if (touchState.currentControlMethod !== 'keyboard') { 
@@ -331,38 +338,31 @@ function updateMoveInput() {
     clientState.input.moveY = moveY;
 }
 
-
 function calculateAimVector(e) {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return;
-
 
     // v1.4: Disparar solo si estás vivo
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
     if (!me || me.health <= 0) return;
-    
+
     if (clientState.cameraX === undefined || clientState.cameraY === undefined) {
         return;
     }
-
 
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left; 
     const mouseY = e.clientY - rect.top;
 
-
     const playerScreenX = me.x - clientState.cameraX;
     const playerScreenY = me.y - clientState.cameraY;
 
-
     let shootX = mouseX - playerScreenX;
     let shootY = mouseY - playerScreenY;
-
 
     const length = Math.sqrt(shootX ** 2 + shootY ** 2);
     if (length > 0.1) { 
         clientState.input.shootX = shootX / length;
         clientState.input.shootY = shootY / length;
-
 
         if (me) {
             me.shootX = clientState.input.shootX;
@@ -371,20 +371,17 @@ function calculateAimVector(e) {
     }
 }
 
-
 canvas.addEventListener('mousemove', calculateAimVector);
-
 
 canvas.addEventListener('mousedown', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return;
-    
+
     // v1.4: Disparar solo si estás vivo
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
     if (me && me.health > 0 && e.button === 0) {
         clientState.input.isShooting = true;
     }
 });
-
 
 canvas.addEventListener('mouseup', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return;
@@ -393,22 +390,18 @@ canvas.addEventListener('mouseup', (e) => {
     }
 });
 
-
 canvas.addEventListener('touchstart', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return;
     e.preventDefault();
-
 
     // v1.4: Input táctil solo si estás vivo
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
     if (!me || me.health <= 0) return;
 
-
     Array.from(e.changedTouches).forEach(touch => {
         const screenX = touch.clientX;
         const screenY = touch.clientY;
         const isLeftHalf = screenX < canvas.width * 0.5;
-
 
         if (isLeftHalf && !touchState.move.active) {
             const move = touchState.move;
@@ -431,21 +424,17 @@ canvas.addEventListener('touchstart', (e) => {
     });
 }, { passive: false });
 
-
 canvas.addEventListener('touchmove', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return;
     e.preventDefault();
-
 
     // v1.4: Input táctil solo si estás vivo
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
     if (!me || me.health <= 0) return;
 
-
     Array.from(e.changedTouches).forEach(touch => {
         const screenX = touch.clientX;
         const screenY = touch.clientY;
-
 
         if (touchState.move.active && touch.identifier === touchState.move.id) {
             const move = touchState.move;
@@ -453,12 +442,10 @@ canvas.addEventListener('touchmove', (e) => {
             let dy = screenY - move.centerY;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-
             if (distance > JOYSTICK_RADIUS) {
                 dx *= JOYSTICK_RADIUS / distance;
                 dy *= JOYSTICK_RADIUS / distance;
             }
-
 
             move.currentX = move.centerX + dx;
             move.currentY = move.centerY + dy;
@@ -471,21 +458,17 @@ canvas.addEventListener('touchmove', (e) => {
             let dy = screenY - aim.centerY;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-
             if (distance > JOYSTICK_RADIUS) {
                 dx *= JOYSTICK_RADIUS / distance;
                 dy *= JOYSTICK_RADIUS / distance;
             }
 
-
             aim.currentX = aim.centerX + dx;
             aim.currentY = aim.centerY + dy;
-
 
             if (distance > KNOB_RADIUS / 2) { 
                 clientState.input.shootX = dx / distance;
                 clientState.input.shootY = dy / distance;
-
 
                 if (me) {
                     me.shootX = clientState.input.shootX;
@@ -496,11 +479,9 @@ canvas.addEventListener('touchmove', (e) => {
     });
 }, { passive: false });
 
-
 canvas.addEventListener('touchend', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return;
     e.preventDefault();
-
 
     Array.from(e.changedTouches).forEach(touch => {
         if (touchState.move.active && touch.identifier === touchState.move.id) {
@@ -517,7 +498,6 @@ canvas.addEventListener('touchend', (e) => {
     });
 }, { passive: false });
 
-
 // --- RENDERIZADO ---
 function gameLoopRender(timestamp) {
     if (clientState.currentState === 'playing') {
@@ -525,12 +505,11 @@ function gameLoopRender(timestamp) {
         const timeSinceLastSnapshot = timestamp - lastRenderTime;
         const interpolationFactor = Math.min(1, timeSinceLastSnapshot / serverSnapshotTime);
 
-
         updateCore(); // v1.3
         interpolateEntities(interpolationFactor);
-        
+
         drawGame(timeSinceLastSnapshot);
-        
+
         // v1.4: Solo enviar input si estás vivo
         const me = clientState.interpolatedEntities.players.get(clientState.me.id);
         if (me && me.health > 0) {
@@ -543,18 +522,16 @@ function gameLoopRender(timestamp) {
         }
     }
 
-
     lastRenderTime = timestamp;
     if (animationFrameId) {
         animationFrameId = requestAnimationFrame(gameLoopRender);
     }
 }
 
-
 // v1.3
 function updateCore() {
     const coreData = clientState.serverSnapshot.zombieCore;
-    
+
     if (coreData) {
         if (!clientState.zombieCoreEntity) {
             clientState.zombieCoreEntity = new ZombieCore(
@@ -578,19 +555,16 @@ function updateCore() {
     }
 }
 
-
 // --- v1.4: `interpolateEntities` MODIFICADO ---
 function interpolateEntities(factor) {
     const { serverSnapshot, interpolatedEntities } = clientState;
     const serverPlayerIds = new Set();
     const serverZombieIds = new Set();
 
-
     serverSnapshot.players.forEach(p_server => {
         serverPlayerIds.add(p_server.id);
         let p_client = interpolatedEntities.players.get(p_server.id);
         const isMe = p_server.id === clientState.me.id;
-
 
         if (!p_client) {
             p_client = new Player(p_server.id, p_server.x, p_server.y, isMe, p_server.name);
@@ -599,18 +573,16 @@ function interpolateEntities(factor) {
             interpolatedEntities.players.set(p_server.id, p_client);
         }
 
-
         p_client.prevX = p_client.x;
         p_client.prevY = p_client.y;
         p_client.targetX = p_server.x;
         p_client.targetY = p_server.y;
         p_client.health = p_server.health;
         p_client.kills = p_server.kills;
-        
+
         // v1.4: Guardar estado de muerte/pendiente
         p_client.isDead = p_server.isDead;
         p_client.isPending = p_server.isPending;
-
 
         if (!isMe || touchState.currentControlMethod === 'keyboard') {
             // v1.4: Solo actualizar mira si estás vivo
@@ -620,22 +592,18 @@ function interpolateEntities(factor) {
             }
         }
 
-
         p_client.x = lerp(p_client.prevX, p_client.targetX, factor);
         p_client.y = lerp(p_client.prevY, p_client.targetY, factor);
     });
-
 
     serverSnapshot.zombies.forEach(z_server => {
         serverZombieIds.add(z_server.id);
         let z_client = interpolatedEntities.zombies.get(z_server.id);
 
-
         if (!z_client) {
             z_client = new Zombie(z_server.id, z_server.x, z_server.y, z_server.maxHealth);
             interpolatedEntities.zombies.set(z_server.id, z_client);
         }
-
 
         z_client.prevX = z_client.x;
         z_client.prevY = z_client.y;
@@ -644,36 +612,32 @@ function interpolateEntities(factor) {
         z_client.health = z_server.health;
         z_client.maxHealth = z_server.maxHealth;
 
-
         z_client.x = lerp(z_client.prevX, z_client.targetX, factor);
         z_client.y = lerp(z_client.prevY, z_client.targetY, factor);
     });
 
-
     interpolatedEntities.players.forEach((_, id) => {
         if (!serverPlayerIds.has(id)) { interpolatedEntities.players.delete(id); }
     });
-
 
     interpolatedEntities.zombies.forEach((_, id) => {
         if (!serverZombieIds.has(id)) { interpolatedEntities.zombies.delete(id); }
     });
 }
 
-
 // --- v1.4: `drawGame` MODIFICADO (Modo Espectador) ---
 function drawGame(deltaTime) {
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
-    
+
     // v1.4: Determinar a quién seguir con la cámara
     let cameraTarget = me;
-    
+
     if (!me || me.health <= 0) {
         // MODO ESPECTADOR: Estoy muerto o pendiente
         // Buscar un compañero vivo para seguir
         const alivePlayer = Array.from(clientState.interpolatedEntities.players.values())
                                 .find(p => p.health > 0 && !p.isPending);
-        
+
         if (alivePlayer) {
             cameraTarget = alivePlayer;
         } else {
@@ -681,7 +645,6 @@ function drawGame(deltaTime) {
             cameraTarget = me; 
         }
     }
-
 
     // Si no hay ningún objetivo (ej: error de conexión), mostrar pantalla negra
     if (!cameraTarget) {
@@ -692,24 +655,19 @@ function drawGame(deltaTime) {
         return;
     }
 
-
     const viewportW = canvas.width / SCALE; 
     const viewportH = canvas.height / SCALE;
 
-
     let cameraX = cameraTarget.x - viewportW / 2;
     let cameraY = cameraTarget.y - viewportH / 2;
-
 
     if (clientState.mapRenderer) {
         const mapSize = clientState.mapRenderer.mapWorldSize;
         cameraX = Math.max(0, Math.min(cameraX, mapSize - viewportW));
         cameraY = Math.max(0, Math.min(cameraY, mapSize - viewportH));
 
-
         if (viewportW > mapSize) cameraX = -(viewportW - mapSize) / 2; 
         if (viewportH > mapSize) cameraY = -(viewportH - mapSize) / 2;
-
 
         clientState.cameraX = cameraX;
         clientState.cameraY = cameraY;
@@ -718,54 +676,43 @@ function drawGame(deltaTime) {
         clientState.cameraY = cameraY;
     }
 
-
     ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); 
     ctx.fillStyle = '#222';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-
     ctx.save();
     ctx.translate(-clientState.cameraX, -clientState.cameraY); 
-
 
     if (clientState.mapRenderer) {
         clientState.mapRenderer.draw(ctx, clientState.cameraX, clientState.cameraY);
     }
 
-
     if (clientState.zombieCoreEntity) {
         clientState.zombieCoreEntity.draw(ctx);
     }
-
 
     clientState.serverSnapshot.bullets.forEach(b => {
         const bullet = new Bullet(b.id, b.x, b.y);
         bullet.draw(ctx);
     });
 
-
     clientState.interpolatedEntities.zombies.forEach(z => {
         z.draw(ctx);
     });
-
 
     clientState.interpolatedEntities.players.forEach(p => {
         p.draw(ctx);
     });
 
-
     ctx.restore();
 
-
     drawHUD(me); // Pasamos 'me' (incluso si está muerto)
-
 
     // v1.4: Dibujar joysticks solo si estoy vivo
     if (me && me.health > 0 && touchState.currentControlMethod === 'touch') {
         drawJoysticks();
     }
 }
-
 
 function drawJoysticks() {
     if (touchState.move.active) {
@@ -775,13 +722,11 @@ function drawJoysticks() {
         ctx.arc(move.centerX, move.centerY, JOYSTICK_RADIUS, 0, Math.PI * 2);
         ctx.fill();
 
-
         ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.beginPath();
         ctx.arc(move.currentX, move.currentY, KNOB_RADIUS, 0, Math.PI * 2);
         ctx.fill();
     }
-
 
     if (touchState.aim.active) {
         const aim = touchState.aim;
@@ -790,7 +735,6 @@ function drawJoysticks() {
         ctx.arc(aim.centerX, aim.centerY, JOYSTICK_RADIUS, 0, Math.PI * 2);
         ctx.fill();
 
-
         ctx.fillStyle = 'rgba(255, 0, 0, 0.6)';
         ctx.beginPath();
         ctx.arc(aim.currentX, aim.currentY, KNOB_RADIUS, 0, Math.PI * 2);
@@ -798,14 +742,12 @@ function drawJoysticks() {
     }
 }
 
-
 const MINIMAP_SIZE = 150; 
-
 
 // --- v1.4: `drawHUD` MODIFICADO (Mensaje de Espectador) ---
 function drawHUD(player) { // 'player' es 'me'
     const { serverSnapshot } = clientState;
-    
+
     const isMobileLayout = canvas.width < 700;
     const barHeight = isMobileLayout ? 60 : 40; 
     const hudWidth = canvas.width - MINIMAP_SIZE;
@@ -814,14 +756,11 @@ function drawHUD(player) { // 'player' es 'me'
     const line1Y = isMobileLayout ? 22 : 25;
     const line2Y = 45; 
 
-
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(0, 0, hudWidth, barHeight);
 
-
     ctx.fillStyle = 'white';
     ctx.font = `bold ${baseFontSize}px Arial`;
-
 
     // v1.4: Mostrar salud 0 si 'me' no existe (pendiente)
     const health = player && player.health > 0 ? player.health : 0;
@@ -829,9 +768,8 @@ function drawHUD(player) { // 'player' es 'me'
     ctx.textAlign = 'left';
     ctx.fillText(`Vida: ${health} | Kills: ${kills}`, padding, line1Y);
 
-
     const scoreText = `Puntuación: ${serverSnapshot.score} | Oleada: ${serverSnapshot.wave}`;
-    
+
     if (isMobileLayout) {
         ctx.textAlign = 'left';
         ctx.fillText(scoreText, padding, line2Y);
@@ -840,54 +778,45 @@ function drawHUD(player) { // 'player' es 'me'
         ctx.fillText(scoreText, hudWidth / 2, line1Y);
     }
 
-
     ctx.textAlign = 'right';
     const myName = player ? player.name : (clientState.me.name || 'Jugador');
-
 
     ctx.fillStyle = player?.health > 0 ? 'cyan' : '#F44336';
     ctx.fillText(`${myName}`, hudWidth - padding, line1Y);
 
-
     drawMinimap(ctx, player); // Pasamos 'me' (incluso si es null)
-    
-    
+
     // --- v1.4: Mensaje de Espectador ---
     if (!player || player.health <= 0) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, canvas.height / 2 - 30, canvas.width, 60);
-        
+
         ctx.fillStyle = '#FF0000';
         ctx.font = 'bold 24px Orbitron, sans-serif';
         ctx.textAlign = 'center';
-        
+
         const message = player && player.isPending ? 'UNIÉNDOSE A LA PARTIDA...' : '¡ESTÁS MUERTO!';
         ctx.fillText(message, canvas.width / 2, canvas.height / 2 - 5);
-        
+
         ctx.fillStyle = 'white';
         ctx.font = '18px Rajdhani, sans-serif';
         ctx.fillText('Esperando a la siguiente oleada...', canvas.width / 2, canvas.height / 2 + 20);
     }
 }
 
-
 function createMinimapBackground() {
     if (!clientState.mapRenderer) return;
 
-
     const mapData = clientState.mapRenderer.map;
     const gridSize = mapData.length;
-
 
     const mapCanvas = document.createElement('canvas');
     mapCanvas.width = gridSize;
     mapCanvas.height = gridSize;
     const mapCtx = mapCanvas.getContext('2d');
 
-
     mapCtx.fillStyle = '#222';
     mapCtx.fillRect(0, 0, gridSize, gridSize);
-
 
     mapCtx.fillStyle = '#555';
     for (let y = 0; y < gridSize; y++) {
@@ -898,10 +827,8 @@ function createMinimapBackground() {
         }
     }
 
-
     clientState.minimapCanvas = mapCanvas;
 }
-
 
 // v1.4: 'me' puede ser null, pero 'drawMinimap' debe funcionar
 function drawMinimap(ctx, me) { 
@@ -909,23 +836,18 @@ function drawMinimap(ctx, me) {
         return;
     }
 
-
     const minimapX = canvas.width - MINIMAP_SIZE;
     const minimapY = 0; 
 
-
     const mapWorldSize = clientState.mapRenderer.mapWorldSize;
     const ratio = MINIMAP_SIZE / mapWorldSize;
-
 
     ctx.save();
     ctx.beginPath();
     ctx.rect(minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
     ctx.clip(); 
 
-
     ctx.drawImage(clientState.minimapCanvas, minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
-
 
     ctx.fillStyle = '#F44336';
     clientState.interpolatedEntities.zombies.forEach(zombie => {
@@ -934,13 +856,11 @@ function drawMinimap(ctx, me) {
         ctx.fillRect(dotX - 1, dotY - 1, 2, 2);
     });
 
-
     ctx.fillStyle = '#477be3';
     clientState.interpolatedEntities.players.forEach(player => {
         if (me && player.id === me.id) return; // Saltar si 'me' existe
         ctx.fillRect(minimapX + (player.x * ratio) - 1, minimapY + (player.y * ratio) - 1, 3, 3);
     });
-
 
     if (clientState.zombieCoreEntity) {
         ctx.fillStyle = '#FF00FF'; // Magenta
@@ -948,22 +868,18 @@ function drawMinimap(ctx, me) {
         ctx.fillRect(minimapX + (core.x * ratio) - 2, minimapY + (core.y * ratio) - 2, 5, 5);
     }
 
-
     // v1.4: Dibujar a 'me' solo si existe
     if (me) {
         ctx.fillStyle = '#2596be';
         ctx.fillRect(minimapX + (me.x * ratio) - 2, minimapY + (me.y * ratio) - 2, 4, 4);
     }
 
-
     ctx.restore();
-
 
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.lineWidth = 1;
     ctx.strokeRect(minimapX, minimapY, MINIMAP_SIZE, MINIMAP_SIZE);
 }
-
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
@@ -971,10 +887,8 @@ function resizeCanvas() {
     ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); 
 }
 
-
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas(); 
-
 
 function updateUI() {
     const menuScreen = document.getElementById('menuScreen');
@@ -983,14 +897,12 @@ function updateUI() {
     const gameOverScreen = document.getElementById('gameOverScreen');
     const roomListScreen = document.getElementById('roomListScreen');
 
-
     menuScreen.style.display = 'none';
     settingsScreen.style.display = 'none';
     lobbyScreen.style.display = 'none';
     gameOverScreen.style.display = 'none';
     roomListScreen.style.display = 'none';
     canvas.style.display = 'none';
-
 
     if (clientState.currentState === 'menu') {
         menuScreen.style.display = 'flex';
@@ -1008,18 +920,15 @@ function updateUI() {
     }
 }
 
-
 function updateLobbyDisplay() {
     const playerList = document.getElementById('lobbyPlayerList');
     const startButton = document.getElementById('startButton');
     const hostConfigInfo = document.getElementById('hostConfigInfo');
 
-
     if (clientState.currentState !== 'lobby') return;
 
-
     playerList.innerHTML = '';
-    
+
     // v1.4: Usar 'playersInLobby' que viene de 'lobbyUpdate'
     if (clientState.playersInLobby) {
         clientState.playersInLobby.forEach(p => {
@@ -1029,7 +938,6 @@ function updateLobbyDisplay() {
             playerList.appendChild(li);
         });
     }
-
 
     if (clientState.me.isHost) { 
         startButton.style.display = 'block';
@@ -1041,29 +949,23 @@ function updateLobbyDisplay() {
         hostConfigInfo.style.display = 'none';
     }
 
-
     document.getElementById('lobbyRoomId').textContent = `Sala ID: ${clientState.roomId}`;
 }
-
 
 function populateRoomList(games) {
     const container = document.getElementById('roomListContainer');
     if (!container) return;
 
-
     container.innerHTML = '';
-
 
     if (games.length === 0) {
         container.innerHTML = '<p style="padding: 20px; color: #aaa; text-align: center;">No hay salas activas. ¡Crea una!</p>';
         return;
     }
 
-
     games.forEach(game => {
         const roomItem = document.createElement('div');
         roomItem.className = 'room-item';
-
 
         const roomInfo = document.createElement('div');
         roomInfo.className = 'room-info';
@@ -1071,7 +973,6 @@ function populateRoomList(games) {
             <strong>Sala: ${game.id}</strong>
             <span>Host: ${game.hostName} (${game.playerCount} jugador${game.playerCount > 1 ? 'es' : ''})</span>
         `;
-
 
         const joinButton = document.createElement('button');
         joinButton.textContent = 'Unirse';
@@ -1082,19 +983,16 @@ function populateRoomList(games) {
             socket.emit('joinGame', game.id, playerName);
         };
 
-
         roomItem.appendChild(roomInfo);
         roomItem.appendChild(joinButton);
         container.appendChild(roomItem);
     });
 }
 
-
 socket.on('connect', () => {
     clientState.me.id = socket.id;
     console.log(`[CLIENTE] Conectado: ${socket.id}`);
 });
-
 
 socket.on('gameCreated', (game) => {
     clientState.currentState = 'lobby';
@@ -1104,7 +1002,6 @@ socket.on('gameCreated', (game) => {
     updateUI();
 });
 
-
 socket.on('joinSuccess', (game) => {
     clientState.currentState = 'lobby';
     clientState.roomId = game.id;
@@ -1112,7 +1009,6 @@ socket.on('joinSuccess', (game) => {
     clientState.playersInLobby = game.players;
     updateUI();
 });
-
 
 socket.on('joinFailed', (message) => {
     const input = document.getElementById('roomIdInput');
@@ -1131,11 +1027,9 @@ socket.on('joinFailed', (message) => {
     updateUI();
 });
 
-
 socket.on('lobbyUpdate', (game) => {
     clientState.playersInLobby = game.players; // v1.4: Actualizar lista de jugadores
     clientState.me.isHost = game.players.find(p => p.id === clientState.me.id)?.isHost || false;
-
 
     if (clientState.currentState === 'gameOver') {
         clientState.currentState = 'lobby';
@@ -1146,56 +1040,47 @@ socket.on('lobbyUpdate', (game) => {
     }
 });
 
-
 socket.on('gameStarted', (data) => {
     clientState.currentState = 'playing';
     clientState.mapRenderer = new MapRenderer(data.mapData, data.cellSize);
 
-
     createMinimapBackground(); 
-
 
     clientState.interpolatedEntities.players.clear();
     clientState.interpolatedEntities.zombies.clear();
     clientState.zombieCoreEntity = null;
 
-
     updateUI();
     resizeCanvas(); 
-
 
     if (!animationFrameId) {
         animationFrameId = requestAnimationFrame(gameLoopRender);
     }
 });
 
-
 socket.on('gameState', (snapshot) => {
     clientState.serverSnapshot = snapshot;
 });
-
 
 socket.on('gameOver', (data) => {
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
     }
-    
+
     clientState.currentState = 'gameOver';
     document.getElementById('finalScore').textContent = data.finalScore;
     document.getElementById('finalWave').textContent = data.finalWave;
     updateUI();
 });
 
-
 socket.on('gameEnded', () => {
     console.warn('La partida terminó.');
-    
+
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
     }
-
 
     clientState.currentState = 'menu';
     clientState.roomId = null;
@@ -1203,24 +1088,20 @@ socket.on('gameEnded', () => {
     updateUI();
 });
 
-
 socket.on('playerDisconnected', (playerId) => {
     console.log(`Jugador desconectado: ${playerId}`);
     // v1.4: La interpolación se encargará de eliminarlo
 });
 
-
 socket.on('gameList', (games) => {
     populateRoomList(games);
 });
-
 
 document.getElementById('createGameButton').addEventListener('click', () => {
     const playerName = document.getElementById('playerNameInput').value || 'Anónimo';
     clientState.me.name = playerName;
     socket.emit('createGame', { name: playerName, config: gameConfig });
 });
-
 
 document.getElementById('browseGamesButton').addEventListener('click', () => {
     clientState.currentState = 'roomList';
@@ -1232,7 +1113,6 @@ document.getElementById('browseGamesButton').addEventListener('click', () => {
     socket.emit('requestGameList');
 });
 
-
 document.getElementById('refreshRoomListButton').addEventListener('click', () => {
     const container = document.getElementById('roomListContainer');
     if (container) {
@@ -1241,12 +1121,10 @@ document.getElementById('refreshRoomListButton').addEventListener('click', () =>
     socket.emit('requestGameList');
 });
 
-
 document.getElementById('backToMenuFromRoomListButton').addEventListener('click', () => {
     clientState.currentState = 'menu';
     updateUI();
 });
-
 
 document.getElementById('joinGameButton').addEventListener('click', () => {
     const roomId = document.getElementById('roomIdInput').value.toUpperCase();
@@ -1265,12 +1143,10 @@ document.getElementById('joinGameButton').addEventListener('click', () => {
     socket.emit('joinGame', roomId, playerName);
 });
 
-
 document.getElementById('settingsButton').addEventListener('click', () => {
     clientState.currentState = 'settings';
     updateUI();
 });
-
 
 document.getElementById('saveSettingsButton').addEventListener('click', () => {
     readConfigFromUI();
@@ -1280,18 +1156,15 @@ document.getElementById('saveSettingsButton').addEventListener('click', () => {
     updateUI();
 });
 
-
 document.getElementById('resetSettingsButton').addEventListener('click', () => {
     const currentControl = gameConfig.controlType;
     gameConfig = {...DEFAULT_CONFIG};
     gameConfig.controlType = currentControl;
 
-
     applyConfigToUI();
     saveConfig();
     updateControlMethod();
 });
-
 
 document.getElementById('startButton').addEventListener('click', () => {
     if (clientState.me.isHost && clientState.roomId) {
@@ -1299,12 +1172,11 @@ document.getElementById('startButton').addEventListener('click', () => {
     }
 });
 
-
 document.getElementById('backToMenuButton').addEventListener('click', () => {
     if (clientState.currentState === 'lobby' && clientState.roomId) {
         socket.emit('leaveRoom', clientState.roomId);
     }
-    
+
     clientState.currentState = 'menu';
     clientState.roomId = null;
     clientState.me.isHost = false;
@@ -1314,7 +1186,6 @@ document.getElementById('backToMenuButton').addEventListener('click', () => {
     }
     updateUI();
 });
-
 
 document.getElementById('continueGameButton').addEventListener('click', () => {
     if (clientState.currentState === 'gameOver' && clientState.roomId) {
@@ -1324,16 +1195,15 @@ document.getElementById('continueGameButton').addEventListener('click', () => {
     }
 });
 
-
 document.getElementById('exitToMenuButton').addEventListener('click', () => {
     if (clientState.roomId) {
         socket.emit('leaveRoom', clientState.roomId);
     }
-    
+
     clientState.currentState = 'menu';
     clientState.roomId = null;
     clientState.me.isHost = false;
-    
+
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
@@ -1341,11 +1211,9 @@ document.getElementById('exitToMenuButton').addEventListener('click', () => {
     updateUI();
 });
 
-
 document.getElementById('setting_waveMultiplier_slider').addEventListener('input', (e) => {
     document.getElementById('waveMultiplierValue').textContent = `+${e.target.value}%`;
 });
-
 
 // v1.3: Listener para el nuevo slider
 document.getElementById('setting_coreBurstSpawnMultiplier_slider').addEventListener('input', (e) => {
@@ -1353,6 +1221,54 @@ document.getElementById('setting_coreBurstSpawnMultiplier_slider').addEventListe
     document.getElementById('coreBurstSpawnMultiplierValue').textContent = `x${value.toFixed(1)}`;
 });
 
+// --- v1.5: LISTENERS PARA LOS NUEVOS SLIDERS ---
+
+// Jugador y Combate
+document.getElementById('setting_playerHealth').addEventListener('input', (e) => {
+    document.getElementById('setting_playerHealth_value').textContent = e.target.value;
+});
+document.getElementById('setting_playerSpeed').addEventListener('input', (e) => {
+    document.getElementById('setting_playerSpeed_value').textContent = e.target.value;
+});
+document.getElementById('setting_shootCooldown').addEventListener('input', (e) => {
+    document.getElementById('setting_shootCooldown_value').textContent = `${e.target.value} ms`;
+});
+document.getElementById('setting_bulletDamage').addEventListener('input', (e) => {
+    document.getElementById('setting_bulletDamage_value').textContent = e.target.value;
+});
+document.getElementById('setting_bulletSpeed').addEventListener('input', (e) => {
+    document.getElementById('setting_bulletSpeed_value').textContent = e.target.value;
+});
+
+// Mapa
+document.getElementById('setting_roomCount').addEventListener('input', (e) => {
+    document.getElementById('setting_roomCount_value').textContent = `${e.target.value} salas`;
+});
+
+// Zombi
+document.getElementById('setting_zombieHealth').addEventListener('input', (e) => {
+    document.getElementById('setting_zombieHealth_value').textContent = e.target.value;
+});
+document.getElementById('setting_zombieSpeed').addEventListener('input', (e) => {
+    document.getElementById('setting_zombieSpeed_value').textContent = e.target.value;
+});
+document.getElementById('setting_zombieAttack').addEventListener('input', (e) => {
+    document.getElementById('setting_zombieAttack_value').textContent = e.target.value;
+});
+document.getElementById('setting_zombieAttackCooldown').addEventListener('input', (e) => {
+    document.getElementById('setting_zombieAttackCooldown_value').textContent = `${e.target.value} ms`;
+});
+
+// Núcleo
+document.getElementById('setting_coreBaseHealth').addEventListener('input', (e) => {
+    document.getElementById('setting_coreBaseHealth_value').textContent = e.target.value;
+});
+document.getElementById('setting_initialZombies').addEventListener('input', (e) => {
+    document.getElementById('setting_initialZombies_value').textContent = `${e.target.value} zombies`;
+});
+document.getElementById('setting_coreBaseSpawnRate').addEventListener('input', (e) => {
+    document.getElementById('setting_coreBaseSpawnRate_value').textContent = `${e.target.value} ms`;
+});
 
 // --- INICIO ---
 loadConfig();

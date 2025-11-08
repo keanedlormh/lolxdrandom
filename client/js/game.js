@@ -1,18 +1,9 @@
 /**
  * client/js/game.js - ACTUALIZADO v1.5
  *
- * 1. (v1.3) Lógica de 2 Fases del Núcleo.
- * 2. (v1.4) `interpolateEntities`: Ahora recibe `isPending` y `isDead`
- * del snapshot y lo guarda en el jugador del cliente.
- * 3. (v1.4) `drawGame` (MODO ESPECTADOR):
- * - Si `me` está muerto o pendiente, la cámara buscará un
- * compañero vivo al que seguir.
- * - Si no hay nadie vivo, la cámara se queda donde está (o va a 0,0).
- * 4. (v1.4) `drawHUD` (MODO ESPECTADOR):
- * - Si `me` está muerto o pendiente, muestra un mensaje
- * "ESPERANDO SIGUIENTE OLEADA" o "ESPECTADOR".
- * 5. (v1.5) `applyConfigToUI` y listeners actualizados para
- * soportar la nueva UI de sliders.
+ * 1. (v1.5) Sliders y listeners actualizados.
+ * 2. (v1.5) `interpolateEntities()`: Ahora lee y almacena
+ * `p_server.maxHealth` en la entidad del cliente.
  */
 
 const socket = io();
@@ -295,10 +286,6 @@ const moveKeys = {
 const keysPressed = new Set();
 
 document.addEventListener('keydown', (e) => {
-    // v1.4: Permitir movimiento de cámara si está muerto (para espectador)
-    // if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return; 
-
-    // v1.4: El input de movimiento solo se envía si estás vivo
     if (clientState.currentState === 'playing' && touchState.currentControlMethod === 'keyboard') {
         const me = clientState.interpolatedEntities.players.get(clientState.me.id);
         if (me && me.health > 0) {
@@ -341,7 +328,6 @@ function updateMoveInput() {
 function calculateAimVector(e) {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return;
 
-    // v1.4: Disparar solo si estás vivo
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
     if (!me || me.health <= 0) return;
 
@@ -376,7 +362,6 @@ canvas.addEventListener('mousemove', calculateAimVector);
 canvas.addEventListener('mousedown', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'keyboard') return;
 
-    // v1.4: Disparar solo si estás vivo
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
     if (me && me.health > 0 && e.button === 0) {
         clientState.input.isShooting = true;
@@ -394,7 +379,6 @@ canvas.addEventListener('touchstart', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return;
     e.preventDefault();
 
-    // v1.4: Input táctil solo si estás vivo
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
     if (!me || me.health <= 0) return;
 
@@ -428,7 +412,6 @@ canvas.addEventListener('touchmove', (e) => {
     if (clientState.currentState !== 'playing' || touchState.currentControlMethod !== 'touch') return;
     e.preventDefault();
 
-    // v1.4: Input táctil solo si estás vivo
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
     if (!me || me.health <= 0) return;
 
@@ -510,12 +493,10 @@ function gameLoopRender(timestamp) {
 
         drawGame(timeSinceLastSnapshot);
 
-        // v1.4: Solo enviar input si estás vivo
         const me = clientState.interpolatedEntities.players.get(clientState.me.id);
         if (me && me.health > 0) {
             sendInputToServer();
         } else {
-            // Asegurarse de no enviar input si estás muerto
             clientState.input.isShooting = false;
             clientState.input.moveX = 0;
             clientState.input.moveY = 0;
@@ -555,7 +536,7 @@ function updateCore() {
     }
 }
 
-// --- v1.4: `interpolateEntities` MODIFICADO ---
+// --- v1.5: `interpolateEntities` MODIFICADO ---
 function interpolateEntities(factor) {
     const { serverSnapshot, interpolatedEntities } = clientState;
     const serverPlayerIds = new Set();
@@ -578,14 +559,13 @@ function interpolateEntities(factor) {
         p_client.targetX = p_server.x;
         p_client.targetY = p_server.y;
         p_client.health = p_server.health;
+        p_client.maxHealth = p_server.maxHealth; // <-- v1.5: AÑADIDO
         p_client.kills = p_server.kills;
 
-        // v1.4: Guardar estado de muerte/pendiente
         p_client.isDead = p_server.isDead;
         p_client.isPending = p_server.isPending;
 
         if (!isMe || touchState.currentControlMethod === 'keyboard') {
-            // v1.4: Solo actualizar mira si estás vivo
             if (p_client.health > 0) {
                 p_client.shootX = p_server.shootX;
                 p_client.shootY = p_server.shootY;
@@ -629,29 +609,24 @@ function interpolateEntities(factor) {
 function drawGame(deltaTime) {
     const me = clientState.interpolatedEntities.players.get(clientState.me.id);
 
-    // v1.4: Determinar a quién seguir con la cámara
     let cameraTarget = me;
 
     if (!me || me.health <= 0) {
-        // MODO ESPECTADOR: Estoy muerto o pendiente
-        // Buscar un compañero vivo para seguir
         const alivePlayer = Array.from(clientState.interpolatedEntities.players.values())
                                 .find(p => p.health > 0 && !p.isPending);
 
         if (alivePlayer) {
             cameraTarget = alivePlayer;
         } else {
-            // Nadie está vivo, la cámara se queda donde está (o en 'me' si existe)
             cameraTarget = me; 
         }
     }
 
-    // Si no hay ningún objetivo (ej: error de conexión), mostrar pantalla negra
     if (!cameraTarget) {
         ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); 
         ctx.fillStyle = '#222';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        drawHUD(me); // Dibujar HUD incluso si no hay cámara
+        drawHUD(me); 
         return;
     }
 
@@ -706,9 +681,8 @@ function drawGame(deltaTime) {
 
     ctx.restore();
 
-    drawHUD(me); // Pasamos 'me' (incluso si está muerto)
+    drawHUD(me); 
 
-    // v1.4: Dibujar joysticks solo si estoy vivo
     if (me && me.health > 0 && touchState.currentControlMethod === 'touch') {
         drawJoysticks();
     }
@@ -762,7 +736,6 @@ function drawHUD(player) { // 'player' es 'me'
     ctx.fillStyle = 'white';
     ctx.font = `bold ${baseFontSize}px Arial`;
 
-    // v1.4: Mostrar salud 0 si 'me' no existe (pendiente)
     const health = player && player.health > 0 ? player.health : 0;
     const kills = player ? player.kills : 0;
     ctx.textAlign = 'left';
@@ -784,9 +757,8 @@ function drawHUD(player) { // 'player' es 'me'
     ctx.fillStyle = player?.health > 0 ? 'cyan' : '#F44336';
     ctx.fillText(`${myName}`, hudWidth - padding, line1Y);
 
-    drawMinimap(ctx, player); // Pasamos 'me' (incluso si es null)
+    drawMinimap(ctx, player); 
 
-    // --- v1.4: Mensaje de Espectador ---
     if (!player || player.health <= 0) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, canvas.height / 2 - 30, canvas.width, 60);
@@ -858,17 +830,16 @@ function drawMinimap(ctx, me) {
 
     ctx.fillStyle = '#477be3';
     clientState.interpolatedEntities.players.forEach(player => {
-        if (me && player.id === me.id) return; // Saltar si 'me' existe
+        if (me && player.id === me.id) return; 
         ctx.fillRect(minimapX + (player.x * ratio) - 1, minimapY + (player.y * ratio) - 1, 3, 3);
     });
 
     if (clientState.zombieCoreEntity) {
-        ctx.fillStyle = '#FF00FF'; // Magenta
+        ctx.fillStyle = '#FF00FF'; 
         const core = clientState.zombieCoreEntity;
         ctx.fillRect(minimapX + (core.x * ratio) - 2, minimapY + (core.y * ratio) - 2, 5, 5);
     }
 
-    // v1.4: Dibujar a 'me' solo si existe
     if (me) {
         ctx.fillStyle = '#2596be';
         ctx.fillRect(minimapX + (me.x * ratio) - 2, minimapY + (me.y * ratio) - 2, 4, 4);
@@ -929,7 +900,6 @@ function updateLobbyDisplay() {
 
     playerList.innerHTML = '';
 
-    // v1.4: Usar 'playersInLobby' que viene de 'lobbyUpdate'
     if (clientState.playersInLobby) {
         clientState.playersInLobby.forEach(p => {
             const li = document.createElement('li');
@@ -1028,7 +998,7 @@ socket.on('joinFailed', (message) => {
 });
 
 socket.on('lobbyUpdate', (game) => {
-    clientState.playersInLobby = game.players; // v1.4: Actualizar lista de jugadores
+    clientState.playersInLobby = game.players; 
     clientState.me.isHost = game.players.find(p => p.id === clientState.me.id)?.isHost || false;
 
     if (clientState.currentState === 'gameOver') {
@@ -1090,7 +1060,6 @@ socket.on('gameEnded', () => {
 
 socket.on('playerDisconnected', (playerId) => {
     console.log(`Jugador desconectado: ${playerId}`);
-    // v1.4: La interpolación se encargará de eliminarlo
 });
 
 socket.on('gameList', (games) => {
@@ -1215,7 +1184,6 @@ document.getElementById('setting_waveMultiplier_slider').addEventListener('input
     document.getElementById('waveMultiplierValue').textContent = `+${e.target.value}%`;
 });
 
-// v1.3: Listener para el nuevo slider
 document.getElementById('setting_coreBurstSpawnMultiplier_slider').addEventListener('input', (e) => {
     const value = parseInt(e.target.value) / 100;
     document.getElementById('coreBurstSpawnMultiplierValue').textContent = `x${value.toFixed(1)}`;

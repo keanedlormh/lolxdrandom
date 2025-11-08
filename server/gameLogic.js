@@ -1,13 +1,9 @@
 /**
  * server/gameLogic.js - ACTUALIZADO v1.5
  *
- * 1. (v1.3) Lógica de 2 Fases del Núcleo.
- * 2. (v1.4) `ServerPlayer` tiene nueva propiedad: `isPendingSpawn`.
- * 3. (v1.4) `addPlayer()` y `spawnNewCore()` manejan reapariciones.
- * 4. (v1.4) `isGameOver()` modificado para ignorar jugadores pendientes.
- * 5. (v1.5) `createBullet()`: La bala ahora se genera en el centro
- * del jugador (x, y) en lugar de en el borde, para golpear
- * a los enemigos a quemarropa.
+ * 1. (v1.5) `createBullet()`: Bala generada en el centro (x, y).
+ * 2. (v1.5) `getGameStateSnapshot()`: Ahora envía `p.maxHealth`
+ * junto con `p.health` a los clientes.
  */
 
 const ServerMapGenerator = require('./serverMapGenerator'); 
@@ -40,7 +36,6 @@ class ServerBullet extends ServerEntity {
     }
 }
 
-// --- v1.4: ServerPlayer MODIFICADO ---
 class ServerPlayer extends ServerEntity {
     constructor(id, x, y, name, config) {
         super(id, x, y, 15, config.playerSpeed);
@@ -52,8 +47,6 @@ class ServerPlayer extends ServerEntity {
         this.lastShotTime = 0;
         this.isDead = false;
         this.shootCooldown = config.shootCooldown;
-
-        // v1.4: Estado para 'Join in Progress'
         this.isPendingSpawn = false; 
     }
 }
@@ -144,7 +137,6 @@ class ServerZombie extends ServerEntity {
     }
 }
 
-// --- v1.3: Clase de Núcleo (con 2 Fases) ---
 class ServerZombieCore {
     constructor(id, x, y, wave, config) {
         this.id = id;
@@ -239,9 +231,8 @@ class GameLogic {
 
         const spawn = this.map.getSpawnPoint();
         playerData.forEach(p => {
-            // v1.4: Crear jugador y marcarlo como NO pendiente
             const newPlayer = new ServerPlayer(p.id, spawn.x, spawn.y, p.name, config);
-            newPlayer.isPendingSpawn = false; // Estos son los jugadores iniciales
+            newPlayer.isPendingSpawn = false; 
             this.entities.players.set(p.id, newPlayer);
         });
 
@@ -249,74 +240,52 @@ class GameLogic {
         this.updatePlayerCostMap();
     }
 
-    // --- v1.4: NUEVA FUNCIÓN 'addPlayer' ---
-    /**
-     * Añade un nuevo jugador a la partida en curso.
-     * Se añadirá como "pendiente" y aparecerá en la siguiente oleada.
-     */
     addPlayer(playerData, config) {
-        const spawn = this.map.getSpawnPoint(); // Spawn por defecto
+        const spawn = this.map.getSpawnPoint(); 
 
-        // 1. Crear nueva entidad de jugador
         const newPlayer = new ServerPlayer(playerData.id, spawn.x, spawn.y, playerData.name, config);
 
-        // 2. Ponerlo en estado "pendiente" y "muerto"
         newPlayer.isDead = true;
         newPlayer.health = 0;
-        newPlayer.isPendingSpawn = true; // Clave
+        newPlayer.isPendingSpawn = true; 
 
-        // 3. Añadirlo a la lista de entidades
         this.entities.players.set(newPlayer.id, newPlayer);
 
         console.log(`[GAME] Jugador pendiente ${newPlayer.name} añadido. Esperando oleada ${this.wave + 1}.`);
     }
 
-    // --- v1.4: 'spawnNewCore' MODIFICADO (Lógica de Revivir) ---
     spawnNewCore() {
         this.wave++;
 
-        // --- v1.4: Lógica de Curación y Reaparición ---
-
-        // 1. Encontrar un "jugador ancla" (el que tenga más vida) para reaparecer
         let anchorPlayer = null;
         let maxHealth = -1;
         this.entities.players.forEach(p => {
-            // No contar jugadores pendientes como ancla
             if (!p.isPendingSpawn && p.health > maxHealth) { 
                 maxHealth = p.health;
                 anchorPlayer = p;
             }
         });
 
-        // 2. Determinar posición de reaparición
         let spawnPos;
         if (anchorPlayer) {
-            // Reaparecer cerca del jugador con más vida
             const anchorGridPos = this.map.worldToGrid(anchorPlayer.x, anchorPlayer.y);
             spawnPos = this.map.findValidSpawnNear(anchorGridPos.x, anchorGridPos.y);
         } else {
-            // Si no hay ancla (ej: todos murieron, o es la oleada 1)
             spawnPos = this.map.getSpawnPoint(); 
         }
 
-        // 3. Iterar y revivir a todos
         this.entities.players.forEach(player => {
             if (player.health > 0 && !player.isPendingSpawn) {
-                // JUGADOR VIVO: Curar a tope
                 player.health = player.maxHealth;
             } else {
-                // JUGADOR MUERTO O PENDIENTE: Revivir y teletransportar
                 player.health = player.maxHealth;
                 player.isDead = false;
-                player.isPendingSpawn = false; // ¡Ahora está activo!
+                player.isPendingSpawn = false; 
                 player.x = spawnPos.x;
                 player.y = spawnPos.y;
             }
         });
 
-        // --- Fin Lógica v1.4 ---
-
-        // 4. Encontrar spawn para el Núcleo (lejos de los jugadores revividos)
         const playerPositions = Array.from(this.entities.players.values())
             .map(p => ({ x: p.x, y: p.y }));
 
@@ -327,7 +296,6 @@ class GameLogic {
             coreSpawnPos = this.map.getSpawnPoint();
         }
 
-        // 5. Crear la nueva entidad Núcleo
         const coreId = `core_${this.wave}`;
         this.entities.zombieCore = new ServerZombieCore(coreId, coreSpawnPos.x, coreSpawnPos.y, this.wave, this.config);
 
@@ -406,7 +374,6 @@ class GameLogic {
         const bulletId = `bullet_${playerId}_${currentTime}`; 
         
         // v1.5: La bala se genera en el CENTRO (x, y)
-        // Esto corrige el bug de no golpear a zombies a quemarropa.
         const startX = x;
         const startY = y;
 
@@ -423,18 +390,15 @@ class GameLogic {
         const deltaTime = currentTime - this.lastUpdateTime; 
         this.lastUpdateTime = currentTime;
 
-        // 1. Actualizar el mapa de costes (Flow Field)
         this.pathfindUpdateTimer += deltaTime;
         if (this.pathfindUpdateTimer > this.pathfindUpdateInterval) {
             this.pathfindUpdateTimer = 0;
             this.updatePlayerCostMap();
         }
 
-        // 2. Actualizar Jugadores
         this.entities.players.forEach(player => {
-            // v1.4: No actualizar jugadores muertos o pendientes
             if (player.health <= 0 || player.isPendingSpawn) {
-                player.isDead = true; // Asegurarse
+                player.isDead = true; 
                 return;
             }
             const oldX = player.x;
@@ -454,7 +418,6 @@ class GameLogic {
             }
         });
 
-        // 3. Actualizar Zombies
         this.entities.zombies.forEach(zombie => {
             const oldX = zombie.x;
             const oldY = zombie.y;
@@ -471,7 +434,6 @@ class GameLogic {
             }
         });
 
-        // 4. Lógica del Núcleo y Oleadas
         if (this.entities.zombieCore) {
             const core = this.entities.zombieCore;
             const shouldSpawn = core.update(deltaTime);
@@ -479,15 +441,12 @@ class GameLogic {
                 this.spawnZombieAtCore();
             }
         } else {
-            // NO HAY NÚCLEO: Comprobar si la oleada ha terminado
             if (this.entities.zombies.size === 0) {
-                // ¡Oleada terminada!
                 this.score += 100 * this.wave;
-                this.spawnNewCore(); // Iniciar siguiente oleada (curará/revivirá jugadores)
+                this.spawnNewCore(); 
             }
         }
 
-        // 5. Actualizar Balas
         const bulletsToRemove = [];
         const zombiesToRemove = [];
 
@@ -546,10 +505,10 @@ class GameLogic {
                 y: p.y,
                 name: p.name,
                 health: p.health,
+                maxHealth: p.maxHealth, // <-- v1.5: AÑADIDO
                 kills: p.kills,
                 shootX: p.input.shootX, 
                 shootY: p.input.shootY,
-                // v1.4: Enviar estado (el cliente lo usará para cámara/HUD)
                 isPending: p.isPendingSpawn,
                 isDead: p.isDead 
             })),
@@ -573,7 +532,6 @@ class GameLogic {
 
     handlePlayerInput(id, input) {
         const player = this.entities.players.get(id);
-        // v1.4: Asegurarse que el jugador está vivo y no pendiente
         if (player && player.health > 0 && !player.isPendingSpawn) {
             player.input = input;
         }
@@ -583,19 +541,14 @@ class GameLogic {
         this.entities.players.delete(id);
     }
 
-    // --- v1.4: 'isGameOver' MODIFICADO ---
     isGameOver() {
-        // Filtrar jugadores que *no* están pendientes
         const activePlayers = Array.from(this.entities.players.values())
                                 .filter(p => !p.isPendingSpawn);
 
         if (activePlayers.length === 0) {
-            // No hay jugadores activos (ej: todos se fueron, o solo hay pendientes)
-            // Si el juego no ha empezado (oleada 0?) no es game over.
             return this.wave > 0;
         }
 
-        // Comprobar si todos los jugadores activos están muertos
         const livingActivePlayers = activePlayers.filter(p => p.health > 0);
         return livingActivePlayers.length === 0;
     }

@@ -5,21 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zombie Shooter Multijugador</title>
 
+
     <!-- FUENTES DE LA ESTÉTICA "APOCALIPSIS" -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
 
+
     <!-- v1.5: ESTILOS SEPARADOS -->
     <link rel="stylesheet" href="css/style.css">
 
+
 </head>
 <body>
+
 
     <!-- Pantalla de Juego -->
     <div id="gameScreen">
         <canvas id="gameCanvas"></canvas>
     </div>
+
 
     <!-- Menú Principal -->
     <div id="menuScreen" class="menu-container">
@@ -35,6 +40,7 @@
         <button id="settingsButton" class="btn btn-secondary btn-block"><span>⚙️ Configuración</span></button>
     </div>
 
+
     <!-- Menú de Configuración -->
     <div id="settingsScreen" class="menu-container" style="display: none;">
         <h2>Configuración</h2> 
@@ -43,6 +49,7 @@
             <button onclick="applyPreset('normal')" class="btn btn-secondary"><span>Normal</span></button>
             <button onclick="applyPreset('hard')" class="btn btn-danger"><span>Difícil</span></button>
         </div>
+
 
         <!-- CONFIGURACIÓN LOCAL -->
         <div class="settings-group">
@@ -57,11 +64,14 @@
             </div>
         </div>
 
+
         <hr>
 
-        <!-- v1.5: CONFIGURACIÓN DE PARTIDA (CON SLIDERS) -->
+
+        <!-- CONFIGURACIÓN DE PARTIDA -->
         <h3 style="text-align:center; text-transform:uppercase; letter-spacing: 2px; margin-bottom: 0;">Configuración de Partida</h3>
         <p style="text-align:center; font-size: 0.9em; opacity: 0.7; margin-top: 5px; margin-bottom: 10px;">(Solo aplica si eres el Host)</p>
+
 
         <!-- Grupo: Jugador y Combate -->
         <div class="settings-group">
@@ -100,6 +110,7 @@
             <input type="range" id="setting_bulletSpeed" min="10" max="40" value="25" class="slider-control">
         </div>
 
+
         <!-- Grupo: Opciones del Mapa -->
         <div class="settings-group">
             <h4>Opciones del Mapa</h4>
@@ -114,9 +125,11 @@
             <div class="setting-item"><label>Ancho de Pasillos:</label><select id="setting_corridorWidth"><option value="2">Estrecho (2)</option><option value="3" selected>Medio (3)</option><option value="4">Ancho (4)</option></select></div>
         </div>
 
+
         <!-- Grupo: Enemigos (Contiene sub-grupos) -->
         <div class="settings-group">
             <h3>Enemigos</h3>
+
 
             <!-- Sub-Grupo: Aumento por Oleada -->
             <h4>Aumento por Oleada</h4>
@@ -127,6 +140,7 @@
             <input type="range" id="setting_waveMultiplier_slider" min="10" max="100" value="50" step="1" class="slider-control">
             <input type="hidden" id="setting_waveMultiplier" value="1.5">
 
+
             <div class="setting-item slider-group" style="margin-top: 15px;">
                 <label>Ritmo Rápido (Fase 1):</label>
                 <span id="coreBurstSpawnMultiplierValue" class="slider-value">x2.5</span>
@@ -134,7 +148,9 @@
             <input type="range" id="setting_coreBurstSpawnMultiplier_slider" min="110" max="500" value="250" step="10" class="slider-control">
             <input type="hidden" id="setting_coreBurstSpawnMultiplier" value="2.5">
 
+
             <hr class="subtle">
+
 
             <!-- Sub-Grupo: Opciones del Zombi -->
             <h4>Opciones del Zombi</h4>
@@ -162,7 +178,9 @@
             </div>
             <input type="range" id="setting_zombieAttackCooldown" min="500" max="3000" value="1000" step="100" class="slider-control">
 
+
             <hr class="subtle">
+
 
             <!-- Sub-Grupo: Opciones del Núcleo -->
             <h4>Opciones del Núcleo</h4>
@@ -171,6 +189,16 @@
                 <span id="setting_coreBaseHealth_value" class="slider-value">500</span>
             </div>
             <input type="range" id="setting_coreBaseHealth" min="100" max="5000" value="500" step="50" class="slider-control">
+
+            <!-- v1.5: NUEVO SLIDER (Aumento Vida Núcleo) -->
+            <div class="setting-item slider-group">
+                <label>Aum. Vida Núcleo (x Oleada):</label>
+                <span id="setting_coreHealthMultiplier_value" class="slider-value">+15%</span>
+            </div>
+            <!-- El valor es 100-125, representa 1.00 a 1.25 (0% a 25%) -->
+            <input type="range" id="setting_coreHealthMultiplier_slider" min="100" max="125" value="115" step="1" class="slider-control">
+            <input type="hidden" id="setting_coreHealthMultiplier" value="1.15">
+            <!-- Fin v1.5 -->
 
             <div class="setting-item slider-group">
                 <label>Zombies Fase 1 (Oleada 1):</label>
@@ -184,12 +212,15 @@
             </div>
             <input type="range" id="setting_coreBaseSpawnRate" min="1000" max="10000" value="5000" step="250" class="slider-control">
         </div>
-        <!-- Fin v1.5 -->
+
+
+
 
         <hr>
         <button id="saveSettingsButton" class="btn btn-primary btn-block"><span>Guardar y Volver</span></button>
         <button id="resetSettingsButton" class="btn btn-danger btn-block"><span>Restaurar Defaults</span></button>
     </div>
+
 
     <!-- Sala de Espera -->
     <div id="lobbyScreen" class="menu-container" style="display: none;">
@@ -206,6 +237,7 @@
         <button id="backToMenuButton" class="btn btn-danger btn-block"><span>Volver al Menú</span></button>
     </div>
 
+
     <!-- Lista de Salas -->
     <div id="roomListScreen" class="menu-container" style="display: none;">
         <h2>Salas Activas</h2>
@@ -216,17 +248,20 @@
         </div>
     </div>
 
+
     <!-- Fin de Partida -->
     <div id="gameOverScreen" class="menu-container" style="display: none;">
         <h2>GAME OVER</h2>
         <p>Puntuación Final: <span id="finalScore" style="font-weight: bold;">0</span></p>
         <p>Oleada Alcanzada: <span id="finalWave" style="font-weight: bold;">0</span></p>
 
+
         <div class="game-over-actions">
             <button id="continueGameButton" class="btn btn-primary btn-block"><span>Continuar</span></button>
             <button id="exitToMenuButton" class="btn btn-danger btn-block"><span>Salir al Menú</span></button>
         </div>
     </div>
+
 
     <!-- Scripts -->
     <script src="/socket.io/socket.io.js"></script> 

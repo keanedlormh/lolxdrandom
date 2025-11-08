@@ -1,12 +1,13 @@
 /**
  * client/js/entities.js
- * v1.3: Añadida la clase ZombieCore.
- * v1.2: Color de Player cambiado a azul.
+ * v1.5: Corregida la barra de vida del jugador.
+ * - El constructor ahora inicializa `this.maxHealth`.
+ * - `draw()` ahora calcula `healthRatio` usando
+ * `this.health / this.maxHealth` para evitar que la barra
+ * se desborde.
  */
 
-
 // --- 1. ENTIDAD BASE PARA JUGADORES Y ZOMBIES ---
-
 
 /**
  * Clase genérica para dibujar entidades circulares.
@@ -19,14 +20,12 @@ class Entity {
         this.radius = radius;
         this.color = color;
 
-
         // Propiedades para interpolación
         this.prevX = x; 
         this.prevY = y;
         this.targetX = x;
         this.targetY = y;
     }
-
 
     /**
      * Dibuja la entidad en el canvas.
@@ -39,13 +38,11 @@ class Entity {
     }
 }
 
-
 // --- 2. JUGADOR ---
-
 
 /**
  * Representa al jugador local o a un compañero.
- * v1.2: Color de otros jugadores cambiado a azul.
+ * v1.5: Barra de vida corregida.
  */
 class Player extends Entity {
     constructor(id, x, y, isMe, name = "Jugador") {
@@ -54,15 +51,14 @@ class Player extends Entity {
         const color = isMe ? '#2596be' : '#477be3'; // Azul Cyan: local, Azul: otros
         super(id, x, y, radius, color);
 
-
         this.isMe = isMe;
         this.name = name;
         this.health = 100;
+        this.maxHealth = 100; // v1.5: Inicializar (será sobreescrito por game.js)
         this.kills = 0;
         this.shootX = 1; // Dirección de puntería (por defecto a la derecha)
         this.shootY = 0;
     }
-
 
     /**
      * Dibuja el jugador, la barra de vida y el nombre, y el indicador de puntería.
@@ -71,10 +67,8 @@ class Player extends Entity {
         // 1. DIBUJAR CUERPO
         super.draw(ctx);
 
-
         const worldX = this.x;
         const worldY = this.y;
-
 
         // 2. DIBUJAR INDICADOR DE PUNTERÍA (Solo si soy yo)
         if (this.isMe) {
@@ -88,12 +82,10 @@ class Player extends Entity {
             const endX = worldX + this.shootX * (this.radius + 15);
             const endY = worldY + this.shootY * (this.radius + 15);
 
-
             ctx.moveTo(startX, startY);
             ctx.lineTo(endX, endY);
             ctx.stroke();
         }
-
 
         // 3. DIBUJAR NOMBRE
         ctx.fillStyle = this.isMe ? '#00FFFF' : '#FFF'; // Cyan para ti, Blanco para otros
@@ -101,18 +93,19 @@ class Player extends Entity {
         ctx.textAlign = 'center';
         ctx.fillText(this.name, worldX, worldY - this.radius - 12);
 
-
-        // 4. DIBUJAR BARRA DE SALUD
-        const barWidth = this.radius * 2; // 30px
+        // 4. DIBUJAR BARRA DE SALUD (v1.5 CORREGIDA)
+        const barWidth = this.radius * 2; // 30px (Tamaño Fijo)
         const barHeight = 4;
-        const healthRatio = this.health / 100;
+        
+        // v1.5: Cálculo CORREGIDO. Usar this.maxHealth.
+        // Asegurarse que maxHealth > 0 y limitar el ratio entre 0 y 1.
+        const healthRatio = (this.maxHealth > 0) ? Math.max(0, Math.min(1, this.health / this.maxHealth)) : 0;
+        
         const barY = worldY + this.radius + 8; // Posicionado debajo
-
 
         // Fondo de la barra
         ctx.fillStyle = '#555';
         ctx.fillRect(worldX - this.radius, barY, barWidth, barHeight);
-
 
         // Relleno de salud
         ctx.fillStyle = healthRatio > 0.4 ? '#4CAF50' : (healthRatio > 0.15 ? '#FFC107' : '#F44336');
@@ -120,9 +113,7 @@ class Player extends Entity {
     }
 }
 
-
 // --- 3. ZOMBIE ---
-
 
 /**
  * Representa a un enemigo.
@@ -136,11 +127,9 @@ class Zombie extends Entity {
         this.health = maxHealth;
     }
 
-
     draw(ctx) {
         // 1. DIBUJAR CUERPO
         super.draw(ctx);
-
 
         // Indicador central
         ctx.fillStyle = 'black';
@@ -148,18 +137,15 @@ class Zombie extends Entity {
         ctx.textAlign = 'center';
         ctx.fillText('Z', this.x, this.y + 4);
 
-
         // 2. DIBUJAR BARRA DE SALUD DEL ZOMBI (Pequeña y roja)
         const barWidth = 20; 
         const barHeight = 3;
         const healthRatio = this.health / this.maxHealth;
         const barY = this.y - this.radius - 8; 
 
-
         // Fondo de la barra
         ctx.fillStyle = '#222';
         ctx.fillRect(this.x - barWidth / 2, barY, barWidth, barHeight);
-
 
         // Relleno de salud (si tiene más de 0)
         if (healthRatio > 0) {
@@ -169,9 +155,7 @@ class Zombie extends Entity {
     }
 }
 
-
 // --- 4. BALA ---
-
 
 /**
  * Representa una bala. 
@@ -184,9 +168,7 @@ class Bullet extends Entity {
     }
 }
 
-
 // --- 5. NÚCLEO ZOMBIE (v1.3 NUEVO) ---
-
 
 /**
  * Representa el Núcleo Zombie (Spawner).
@@ -204,21 +186,18 @@ class ZombieCore {
         this.borderColor = '#FF00FF'; // Magenta brillante
     }
 
-
     draw(ctx) {
         const halfSize = this.size / 2;
         const worldX = this.x;
         const worldY = this.y;
 
-
         // 1. DIBUJAR CUERPO (Cuadrado)
         ctx.fillStyle = this.color;
         ctx.strokeStyle = this.borderColor;
         ctx.lineWidth = 3;
-        
+
         ctx.fillRect(worldX - halfSize, worldY - halfSize, this.size, this.size);
         ctx.strokeRect(worldX - halfSize, worldY - halfSize, this.size, this.size);
-
 
         // 2. DIBUJAR BARRA DE SALUD (Grande, encima)
         const barWidth = this.size * 1.5;
@@ -226,16 +205,14 @@ class ZombieCore {
         const healthRatio = this.health / this.maxHealth;
         const barY = worldY - halfSize - 15; // Posicionado encima
 
-
         // Fondo de la barra
         ctx.fillStyle = '#555';
         ctx.fillRect(worldX - barWidth / 2, barY, barWidth, barHeight);
 
-
         // Relleno de salud
         ctx.fillStyle = '#FF00FF'; // Magenta
         ctx.fillRect(worldX - barWidth / 2, barY, barWidth * healthRatio, barHeight);
-        
+
         // Borde de la barra
         ctx.strokeStyle = '#FFF';
         ctx.lineWidth = 1;
@@ -243,11 +220,7 @@ class ZombieCore {
     }
 }
 
-
-
-
 // --- 6. GENERADOR DE MAPAS (SOLO PARA DIBUJO EN CLIENTE) ---
-
 
 /**
  * Clase para manejar el dibujo del entorno estático.
@@ -260,35 +233,29 @@ class MapRenderer {
         this.mapWorldSize = this.size * this.cellSize;
     }
 
-
     /**
      * Dibuja el mapa completo.
      */
     draw(ctx, cameraX, cameraY) {
         if (this.map.length === 0) return;
 
-
         // Rango de celdas visibles para optimización
         const canvasWidth = ctx.canvas.width / window.SCALE;
         const canvasHeight = ctx.canvas.height / window.SCALE;
-
 
         const startX = Math.max(0, Math.floor(cameraX / this.cellSize));
         const startY = Math.max(0, Math.floor(cameraY / this.cellSize));
         const endX = Math.min(this.size, Math.ceil((cameraX + canvasWidth) / this.cellSize));
         const endY = Math.min(this.size, Math.ceil((cameraY + canvasHeight) / this.cellSize));
 
-
         for (let y = startY; y < endY; y++) {
             for (let x = startX; x < endX; x++) {
                 const worldX = x * this.cellSize;
                 const worldY = y * this.cellSize;
 
-
                 // Suelo 
                 ctx.fillStyle = '#1a1a1a'; 
                 ctx.fillRect(worldX, worldY, this.cellSize, this.cellSize);
-
 
                 // Muros (1)
                 if (this.map[y][x] === 1) {
@@ -300,11 +267,10 @@ class MapRenderer {
     }
 }
 
-
 // Exportar clases para uso global
 window.Player = Player;
 window.Zombie = Zombie;
 window.Bullet = Bullet;
-window.ZombieCore = ZombieCore; // v1.3: Exportar nueva clase
+window.ZombieCore = ZombieCore;
 window.MapRenderer = MapRenderer;
 window.SCALE = 1.0;

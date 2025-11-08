@@ -2,8 +2,9 @@
  * client/js/game.js - ACTUALIZADO v1.5
  *
  * 1. (v1.5) Sliders y listeners actualizados.
- * 2. (v1.5) `interpolateEntities()`: Ahora lee y almacena
- * `p_server.maxHealth` en la entidad del cliente.
+ * 2. (v1.5) `interpolateEntities()`: Almacena `maxHealth`.
+ * 3. (v1.5) Añadido `coreHealthMultiplier` a toda la lógica
+ * de configuración (defaults, presets, UI).
  */
 
 const socket = io();
@@ -14,7 +15,7 @@ const SCALE = 1.0;
 window.SCALE = SCALE;
 const SERVER_TICK_RATE = 30;
 
-// --- v1.3: Configuración por defecto actualizada ---
+// --- v1.5: Configuración por defecto actualizada ---
 const DEFAULT_CONFIG = {
     controlType: 'auto',
     playerHealth: 100,
@@ -33,7 +34,8 @@ const DEFAULT_CONFIG = {
     waveMultiplier: 1.5,
     coreBaseHealth: 500,
     coreBaseSpawnRate: 5000,
-    coreBurstSpawnMultiplier: 2.5
+    coreBurstSpawnMultiplier: 2.5,
+    coreHealthMultiplier: 1.15 // v1.5: AÑADIDO (15% por oleada)
 };
 
 // Configuración actual del juego
@@ -100,6 +102,12 @@ function applyConfigToUI() {
     document.getElementById('setting_coreBaseSpawnRate').value = gameConfig.coreBaseSpawnRate;
     document.getElementById('setting_coreBaseSpawnRate_value').textContent = `${gameConfig.coreBaseSpawnRate} ms`;
 
+    // v1.5: Añadido slider Aum. Vida Núcleo
+    const coreHealthSliderValue = Math.round(gameConfig.coreHealthMultiplier * 100);
+    document.getElementById('setting_coreHealthMultiplier_slider').value = coreHealthSliderValue;
+    document.getElementById('setting_coreHealthMultiplier_value').textContent = `+${coreHealthSliderValue - 100}%`;
+    document.getElementById('setting_coreHealthMultiplier').value = gameConfig.coreHealthMultiplier;
+
     // Sliders existentes (con lógica de % y x)
     const waveSliderValue = Math.round((gameConfig.waveMultiplier - 1) * 100);
     document.getElementById('setting_waveMultiplier_slider').value = waveSliderValue;
@@ -138,6 +146,10 @@ function readConfigFromUI() {
     gameConfig.initialZombies = parseInt(document.getElementById('setting_initialZombies').value);
     gameConfig.coreBaseHealth = parseInt(document.getElementById('setting_coreBaseHealth').value);
     gameConfig.coreBaseSpawnRate = parseInt(document.getElementById('setting_coreBaseSpawnRate').value);
+    
+    // v1.5: Añadido
+    const coreHealthSliderValue = parseInt(document.getElementById('setting_coreHealthMultiplier_slider').value);
+    gameConfig.coreHealthMultiplier = coreHealthSliderValue / 100;
 
     // Sliders especiales (Ocultos)
     const waveSliderValue = parseInt(document.getElementById('setting_waveMultiplier_slider').value);
@@ -147,7 +159,7 @@ function readConfigFromUI() {
     gameConfig.coreBurstSpawnMultiplier = burstSliderValue / 100;
 }
 
-// --- v1.3: MODIFICADO ---
+// --- v1.5: MODIFICADO (Presets) ---
 window.applyPreset = function(preset) {
     let presetSettings = {};
     switch(preset) {
@@ -169,12 +181,14 @@ window.applyPreset = function(preset) {
                 waveMultiplier: 1.3,
                 coreBaseHealth: 300,
                 coreBaseSpawnRate: 6000,
-                coreBurstSpawnMultiplier: 2.0
+                coreBurstSpawnMultiplier: 2.0,
+                coreHealthMultiplier: 1.10 // v1.5
             };
             break;
         case 'normal':
             presetSettings = {...DEFAULT_CONFIG};
             delete presetSettings.controlType; 
+            presetSettings.coreHealthMultiplier = 1.15; // v1.5
             break;
         case 'hard':
             presetSettings = {
@@ -194,7 +208,8 @@ window.applyPreset = function(preset) {
                 waveMultiplier: 1.8,
                 coreBaseHealth: 1000,
                 coreBaseSpawnRate: 3500,
-                coreBurstSpawnMultiplier: 4.0
+                coreBurstSpawnMultiplier: 4.0,
+                coreHealthMultiplier: 1.25 // v1.5
             };
             break;
     }
@@ -1236,6 +1251,12 @@ document.getElementById('setting_initialZombies').addEventListener('input', (e) 
 });
 document.getElementById('setting_coreBaseSpawnRate').addEventListener('input', (e) => {
     document.getElementById('setting_coreBaseSpawnRate_value').textContent = `${e.target.value} ms`;
+});
+
+// v1.5: Listener para Aum. Vida Núcleo
+document.getElementById('setting_coreHealthMultiplier_slider').addEventListener('input', (e) => {
+    const value = parseInt(e.target.value);
+    document.getElementById('setting_coreHealthMultiplier_value').textContent = `+${value - 100}%`;
 });
 
 // --- INICIO ---

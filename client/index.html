@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zombie Shooter Multijugador</title>
 
-    <!-- FUENTES DE LA ESTÉTICA "APOCALIPSIS" -->
+    <!-- FUENTES -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
 
-    <!-- v1.5: ESTILOS SEPARADOS -->
+    <!-- ESTILOS -->
     <link rel="stylesheet" href="css/style.css">
     
 </head>
@@ -35,7 +35,7 @@
         <button id="settingsButton" class="btn btn-secondary btn-block"><span>⚙️ Configuración</span></button>
     </div>
 
-    <!-- Menú de Configuración -->
+    <!-- Menú de Configuración (v1.5 - TODO SLIDERS) -->
     <div id="settingsScreen" class="menu-container" style="display: none;">
         <h2>Configuración</h2> 
         <div class="preset-buttons">
@@ -66,19 +66,33 @@
         <!-- Grupo: Jugador y Combate -->
         <div class="settings-group">
             <h4>Jugador y Combate</h4>
-            <div class="setting-item"><label>Vida Máxima:</label><input type="number" id="setting_playerHealth" min="50" max="300" value="100"></div>
-            <div class="setting-item"><label>Velocidad:</label><input type="number" id="setting_playerSpeed" min="3" max="12" value="6" step="0.5"></div>
-            <div class="setting-item"><label>Cooldown Disparo (ms):</label><input type="number" id="setting_shootCooldown" min="50" max="500" value="150" step="10"></div>
+            
+            <div class="setting-item slider-group"><label>Vida Máxima:</label><span class="slider-value" id="setting_playerHealth_value">100</span></div>
+            <input type="range" class="slider-control" id="setting_playerHealth" min="50" max="300" value="100" step="10">
+            
+            <div class="setting-item slider-group"><label>Velocidad:</label><span class="slider-value" id="setting_playerSpeed_value">6.0</span></div>
+            <input type="range" class="slider-control" id="setting_playerSpeed" min="3" max="12" value="6" step="0.5">
+
+            <div class="setting-item slider-group"><label>Cooldown Disparo:</label><span class="slider-value" id="setting_shootCooldown_value">150 ms</span></div>
+            <input type="range" class="slider-control" id="setting_shootCooldown" min="50" max="500" value="150" step="10">
+            
             <hr class="subtle">
-            <div class="setting-item"><label>Daño de Bala:</label><input type="number" id="setting_bulletDamage" min="5" max="50" value="10"></div>
-            <div class="setting-item"><label>Velocidad de Bala:</label><input type="number" id="setting_bulletSpeed" min="10" max="40" value="25"></div>
+            
+            <div class="setting-item slider-group"><label>Daño de Bala:</label><span class="slider-value" id="setting_bulletDamage_value">10</span></div>
+            <input type="range" class="slider-control" id="setting_bulletDamage" min="5" max="50" value="10" step="1">
+            
+            <div class="setting-item slider-group"><label>Velocidad de Bala:</label><span class="slider-value" id="setting_bulletSpeed_value">25</span></div>
+            <input type="range" class="slider-control" id="setting_bulletSpeed" min="10" max="40" value="25" step="1">
         </div>
 
         <!-- Grupo: Opciones del Mapa -->
         <div class="settings-group">
             <h4>Opciones del Mapa</h4>
             <div class="setting-item"><label>Tamaño del Mapa:</label><select id="setting_mapSize"><option value="40">Pequeño (40x40)</option><option value="60" selected>Mediano (60x60)</option><option value="80">Grande (80x80)</option></select></div>
-            <div class="setting-item"><label>Número de Salas:</label><input type="number" id="setting_roomCount" min="3" max="12" value="6"></div>
+            
+            <div class="setting-item slider-group"><label>Número de Salas:</label><span class="slider-value" id="setting_roomCount_value">6</span></div>
+            <input type="range" class="slider-control" id="setting_roomCount" min="3" max="12" value="6" step="1">
+
             <div class="setting-item"><label>Ancho de Pasillos:</label><select id="setting_corridorWidth"><option value="2">Estrecho (2)</option><option value="3" selected>Medio (3)</option><option value="4">Ancho (4)</option></select></div>
         </div>
         
@@ -106,18 +120,30 @@
 
             <!-- Sub-Grupo: Opciones del Zombi -->
             <h4>Opciones del Zombi</h4>
-            <div class="setting-item"><label>Vida Máxima:</label><input type="number" id="setting_zombieHealth" min="10" max="100" value="30"></div>
-            <div class="setting-item"><label>Velocidad:</label><input type="number" id="setting_zombieSpeed" min="1" max="8" value="3" step="0.5"></div>
-            <div class="setting-item"><label>Daño de Ataque:</label><input type="number" id="setting_zombieAttack" min="5" max="50" value="10"></div>
-            <div class="setting-item"><label>Cooldown Ataque (ms):</label><input type="number" id="setting_zombieAttackCooldown" min="500" max="3000" value="1000" step="100"></div>
+            <div class="setting-item slider-group"><label>Vida Máxima:</label><span class="slider-value" id="setting_zombieHealth_value">30</span></div>
+            <input type="range" class="slider-control" id="setting_zombieHealth" min="10" max="100" value="30" step="5">
+
+            <div class="setting-item slider-group"><label>Velocidad:</label><span class="slider-value" id="setting_zombieSpeed_value">3.0</span></div>
+            <input type="range" class="slider-control" id="setting_zombieSpeed" min="1" max="8" value="3" step="0.5">
+
+            <div class="setting-item slider-group"><label>Daño de Ataque:</label><span class="slider-value" id="setting_zombieAttack_value">10</span></div>
+            <input type="range" class="slider-control" id="setting_zombieAttack" min="5" max="50" value="10" step="1">
+
+            <div class="setting-item slider-group"><label>Cooldown Ataque:</label><span class="slider-value" id="setting_zombieAttackCooldown_value">1000 ms</span></div>
+            <input type="range" class="slider-control" id="setting_zombieAttackCooldown" min="500" max="3000" value="1000" step="100">
 
             <hr class="subtle">
 
             <!-- Sub-Grupo: Opciones del Núcleo -->
             <h4>Opciones del Núcleo</h4>
-            <div class="setting-item"><label>Vida Base del Núcleo:</label><input type="number" id="setting_coreBaseHealth" min="100" max="5000" value="500" step="50"></div>
-            <div class="setting-item"><label>Zombies Fase 1 (Oleada 1):</label><input type="number" id="setting_initialZombies" min="1" max="50" value="10"></div>
-            <div class="setting-item"><label>Ritmo Fase 2 (ms):</label><input type="number" id="setting_coreBaseSpawnRate" min="1000" max="10000" value="5000" step="250"></div>
+            <div class="setting-item slider-group"><label>Vida Base del Núcleo:</label><span class="slider-value" id="setting_coreBaseHealth_value">500</span></div>
+            <input type="range" class="slider-control" id="setting_coreBaseHealth" min="100" max="5000" value="500" step="50">
+            
+            <div class="setting-item slider-group"><label>Zombies Fase 1 (Oleada 1):</label><span class="slider-value" id="setting_initialZombies_value">10</span></div>
+            <input type="range" class="slider-control" id="setting_initialZombies" min="1" max="50" value="10" step="1">
+            
+            <div class="setting-item slider-group"><label>Ritmo Fase 2:</label><span class="slider-value" id="setting_coreBaseSpawnRate_value">5000 ms</span></div>
+            <input type="range" class="slider-control" id="setting_coreBaseSpawnRate" min="1000" max="10000" value="5000" step="250">
         </div>
 
 
